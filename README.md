@@ -23,7 +23,7 @@ Versione di sviluppo `0.1.0`. Drive richiede un client OAuth Android associato a
 
 APK debug: `app/build/outputs/apk/debug/app-debug.apk`.
 
-Documenti tecnici: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md), [`docs/SYNC_PROTOCOL.md`](docs/SYNC_PROTOCOL.md), [`docs/SECURITY.md`](docs/SECURITY.md), [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md), [`docs/DECISIONS.md`](docs/DECISIONS.md), [`docs/RELEASE.md`](docs/RELEASE.md).
+Documenti tecnici: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md), [`docs/SYNC_PROTOCOL.md`](docs/SYNC_PROTOCOL.md), [`docs/SECURITY.md`](docs/SECURITY.md), [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md), [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md), [`docs/DECISIONS.md`](docs/DECISIONS.md), [`docs/RELEASE.md`](docs/RELEASE.md).
 
 ## Qualità
 

@@ -33,6 +33,7 @@ import it.miaterapia.family.notifications.AlarmScheduler
 import it.miaterapia.family.notifications.NotificationHelper
 import it.miaterapia.family.reports.PdfExporter
 import it.miaterapia.family.security.PatientCrypto
+import it.miaterapia.family.security.PatientKeyStore
 import it.miaterapia.family.sync.DriveAuthorization
 import it.miaterapia.family.sync.DriveRestClient
 import kotlinx.coroutines.Dispatchers
@@ -119,7 +120,7 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
         scope.launch {
             driveStatus = runCatching {
                 withContext(Dispatchers.IO) {
-                    val key = PatientCrypto.newPatientKey()
+                    val key = PatientKeyStore(context).getOrCreate(patientId)
                     val envelope = PatientCrypto.encrypt(patientId, "{\"kind\":\"oauth-spike\",\"version\":1}".toByteArray(), key)
                     val payload = JSONObject().put("version", envelope.version).put("nonce", envelope.nonce).put("ciphertext", envelope.ciphertext).toString().toByteArray()
                     val client = DriveRestClient(token)
