@@ -4,10 +4,11 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 
 class AlarmScheduler(private val context: Context) {
     private val manager = context.getSystemService(AlarmManager::class.java)
-    fun canScheduleExact() = manager.canScheduleExactAlarms()
+    fun canScheduleExact() = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || manager.canScheduleExactAlarms()
     fun schedule(occurrenceId: String, atMillis: Long): Boolean {
         if (!canScheduleExact()) return false
         manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pending(occurrenceId))

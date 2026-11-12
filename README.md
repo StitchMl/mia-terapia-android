@@ -12,7 +12,7 @@ Google Drive, condivisione multi-account e cifratura cloud restano disattivati. 
 
 - Android Studio 2026.2.1 o compatibile
 - JDK 25
-- Android SDK 36
+- Android SDK 37
 - Dispositivo Android 10 o successivo
 
 ## Comandi
