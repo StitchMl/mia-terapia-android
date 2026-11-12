@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import org.junit.Rule
 import org.junit.Test
 
@@ -27,8 +28,8 @@ class MainActivityTest {
     @Test fun settingsExposeReportsPermissionsAndDrive() {
         rule.onNodeWithText("Altro", useUnmergedTree = true).performClick()
         rule.onNodeWithText("Notifiche").assertIsDisplayed()
-        rule.onNodeWithText("Report aderenza PDF").assertIsDisplayed()
-        rule.onNodeWithText("Richiesta farmaci PDF").assertIsDisplayed()
-        rule.onNodeWithText("Collega e verifica Drive").assertIsDisplayed()
+        rule.onNodeWithText("Report aderenza PDF").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Richiesta farmaci PDF").performScrollTo().assertIsDisplayed()
+        rule.onNodeWithText("Collega e verifica Drive").performScrollTo().assertIsDisplayed()
     }
 }

@@ -49,13 +49,18 @@ object PdfExporter {
         "richiesta-farmaci.pdf",
         "MiaTerapia · Richiesta farmaci",
         buildList {
+            val request = snapshot.requests.firstOrNull { it.status.name == "READY" }
+            val selectedIds = request?.medicationIdsCsv?.split(',')?.filter { it.isNotBlank() }?.toSet().orEmpty()
+            val patient = snapshot.patients.firstOrNull { it.id == request?.patientId } ?: snapshot.patients.firstOrNull()
             add("Generata: ${format(System.currentTimeMillis())}")
             add("")
-            snapshot.medications.filter { it.active }.forEach { medicine ->
-                add("□ ${medicine.name} ${medicine.strength.orEmpty()} · ${medicine.form}")
+            add("Buongiorno Dott.ssa/Dott.,")
+            add("per ${patient?.alias ?: "il paziente"} avrei necessità del rinnovo delle seguenti prescrizioni:")
+            snapshot.medications.filter { it.active && (selectedIds.isEmpty() || it.id in selectedIds) }.forEach { medicine ->
+                add("- ${medicine.name} ${medicine.strength.orEmpty()} · ${medicine.form}")
             }
-            add("")
-            add("Nota: verificare prescrizione, quantità e disponibilità con medico o farmacia.")
+            request?.note?.let { add("Altre richieste: $it") }
+            add("Grazie e cordiali saluti.")
         }
     )
 

@@ -7,6 +7,6 @@ import it.miaterapia.family.notifications.NotificationHelper
 
 class MiaTerapiaApplication : Application() {
     val database by lazy { AppDatabase.create(this) }
-    val repository by lazy { TherapyRepository(database) }
+    val repository by lazy { TherapyRepository(this, database) }
     override fun onCreate() { super.onCreate(); NotificationHelper.createChannel(this) }
 }

@@ -8,19 +8,24 @@ import java.time.ZoneId
 import java.math.BigDecimal
 import java.util.UUID
 import it.miaterapia.family.domain.TherapyLimits
+import android.content.Context
+import it.miaterapia.family.notifications.AlarmScheduler
+import it.miaterapia.family.settings.DeviceSettings
 
-data class TherapySnapshot(val patients: List<PatientEntity> = emptyList(), val medications: List<MedicationEntity> = emptyList(), val doses: List<DoseOccurrenceEntity> = emptyList(), val movements: List<StockMovementEntity> = emptyList())
+data class TherapySnapshot(val patients: List<PatientEntity> = emptyList(), val medications: List<MedicationEntity> = emptyList(), val doses: List<DoseOccurrenceEntity> = emptyList(), val movements: List<StockMovementEntity> = emptyList(), val requests: List<RefillRequestEntity> = emptyList())
 
-class TherapyRepository(private val db: AppDatabase) {
+class TherapyRepository(private val context: Context, private val db: AppDatabase) {
     private val dao = db.therapyDao()
-    val snapshot = combine(dao.patients(), dao.medications(), dao.doses(), dao.stockMovements()) { p, m, d, s -> TherapySnapshot(p, m, d, s) }
+    val snapshot = combine(dao.patients(), dao.medications(), dao.doses(), dao.stockMovements(), dao.refillRequests()) { p, m, d, s, r -> TherapySnapshot(p, m, d, s, r) }
     suspend fun seedIfEmpty() = db.withTransaction {
         val patient = PatientEntity(id = "patient-demo", alias = "Matteo", type = PatientType.HUMAN)
         val medication = MedicationEntity(id = "med-demo", patientId = patient.id, name = "Farmaco dimostrativo", form = "Compressa", strength = "10 mg")
         val at = LocalDate.now().atTime(LocalTime.of(20, 0)).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         dao.insertPatients(listOf(patient))
+        if (DeviceSettings(context).assignedPatients().isEmpty()) DeviceSettings(context).setAlarmAssigned(patient.id, true)
         dao.insertMedications(listOf(medication))
         dao.insertDoses(listOf(DoseOccurrenceEntity(id = "dose-demo", patientId = patient.id, medicationId = medication.id, scheduledAtEpochMillis = at, doseAmount = "1", doseUnit = StockUnit.TABLET)))
+        if (DeviceSettings(context).isAlarmAssigned(patient.id) && at > System.currentTimeMillis()) AlarmScheduler(context).schedule("dose-demo", at)
         dao.insertMovement(StockMovementEntity(id = "stock-demo", medicationId = medication.id, causeOccurrenceId = null, amountDecimal = "30", unit = StockUnit.TABLET, type = MovementType.INITIAL))
     }
     suspend fun confirmDose(id: String) = dao.confirmDose(id, System.currentTimeMillis())
@@ -39,7 +44,9 @@ class TherapyRepository(private val db: AppDatabase) {
         val medication = MedicationEntity(patientId = patientId, name = name.trim(), form = form.trim(), strength = strength?.trim()?.ifBlank { null })
         val scheduled = LocalDate.now().atTime(hour, minute).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         dao.insertMedication(medication)
-        dao.insertDose(DoseOccurrenceEntity(id = UUID.randomUUID().toString(), patientId = patientId, medicationId = medication.id, scheduledAtEpochMillis = scheduled, doseAmount = decimal.toPlainString(), doseUnit = unit))
+        val occurrence = DoseOccurrenceEntity(id = UUID.randomUUID().toString(), patientId = patientId, medicationId = medication.id, scheduledAtEpochMillis = scheduled, doseAmount = decimal.toPlainString(), doseUnit = unit)
+        dao.insertDose(occurrence)
+        if (DeviceSettings(context).isAlarmAssigned(patientId) && scheduled > System.currentTimeMillis()) AlarmScheduler(context).schedule(occurrence.id, scheduled)
     }
 
     suspend fun addStock(medicationId: String, amount: String, unit: StockUnit) {
@@ -58,4 +65,9 @@ class TherapyRepository(private val db: AppDatabase) {
         dao.insertDose(occurrence)
         dao.confirmDose(occurrence.id, now)
     }
+    suspend fun createRefillRequest(patientId: String, medicationIds: List<String>, extraText: String) {
+        require(medicationIds.isNotEmpty() || extraText.isNotBlank()) { "Seleziona un farmaco o inserisci una richiesta manuale" }
+        dao.insertRefillRequest(RefillRequestEntity(patientId = patientId, medicationIdsCsv = medicationIds.distinct().joinToString(","), note = extraText.trim().ifBlank { null }, status = RequestStatus.READY))
+    }
+    suspend fun markRequestFulfilled(id: String) = dao.updateRequestStatus(id, RequestStatus.FULFILLED, System.currentTimeMillis())
 }

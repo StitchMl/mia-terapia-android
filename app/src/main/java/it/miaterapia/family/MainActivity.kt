@@ -41,6 +41,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import it.miaterapia.family.settings.DeviceSettings
+import it.miaterapia.family.settings.UserRole
 import it.miaterapia.family.ui.MiaTerapiaTheme
 import java.time.Instant
 import java.time.ZoneId
@@ -65,7 +67,7 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = { TopAppBar(title = { Column { Text("MiaTerapia"); Text("Dati dimostrativi", style = MaterialTheme.typography.labelMedium) } }) },
         bottomBar = { NavigationBar { Tab.entries.forEach { item -> NavigationBarItem(selected = tab == item, onClick = { tab = item }, icon = { Icon(when(item) { Tab.TODAY -> Icons.Outlined.Today; Tab.THERAPIES -> Icons.Outlined.Medication; Tab.STOCK -> Icons.Outlined.Inventory2; Tab.LOG -> Icons.Outlined.History; Tab.SETTINGS -> Icons.Outlined.Settings }, null) }, label = { Text(item.label) }) } } }
-    ) { padding -> Box(Modifier.padding(padding).fillMaxSize()) { when(tab) { Tab.TODAY -> TodayScreen(snapshot, vm::confirm); Tab.THERAPIES -> TherapiesScreen(snapshot, vm::addMedication, vm::archiveMedication, vm::recordAsNeeded); Tab.STOCK -> StockScreen(snapshot, vm::addStock); Tab.LOG -> LogScreen(snapshot, vm::reverseDose); Tab.SETTINGS -> SettingsScreen(snapshot, vm::addPatient) } } }
+    ) { padding -> Box(Modifier.padding(padding).fillMaxSize()) { when(tab) { Tab.TODAY -> TodayScreen(snapshot, vm::confirm); Tab.THERAPIES -> TherapiesScreen(snapshot, vm::addMedication, vm::archiveMedication, vm::recordAsNeeded); Tab.STOCK -> StockScreen(snapshot, vm::addStock); Tab.LOG -> LogScreen(snapshot, vm::reverseDose); Tab.SETTINGS -> SettingsScreen(snapshot, vm::addPatient, vm::createRefillRequest, vm::markRequestFulfilled, vm::setRole, vm::setAlarmAssignment) } } }
 }
 
 @Composable private fun Page(content: @Composable ColumnScope.() -> Unit) = LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { item { Column(content = content) } }
@@ -106,7 +108,8 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
 
 @Composable private fun LogScreen(s: TherapySnapshot, reverse: (String) -> Unit) = Page { Heading("Registro"); Text("Cronologia locale; le rettifiche conservano l’evento originale."); Spacer(Modifier.height(8.dp)); s.doses.filter { it.status == DoseStatus.TAKEN }.forEach { dose -> ListItem(headlineContent = { Text("Dose confermata") }, supportingContent = { Text("${formatDate(dose.confirmedAtEpochMillis ?: dose.scheduledAtEpochMillis)} · ${dose.doseAmount} ${unitLabel(dose.doseUnit)}") }, leadingContent = { Icon(Icons.Outlined.CheckCircle, null, tint = MaterialTheme.colorScheme.primary) }, trailingContent = { TextButton(onClick = { reverse(dose.id) }) { Text("Rettifica") } }) } }
 
-@Composable private fun SettingsScreen(snapshot: TherapySnapshot, addPatient: (String, PatientType) -> Unit) {
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable private fun SettingsScreen(snapshot: TherapySnapshot, addPatient: (String, PatientType) -> Unit, createRequest: (String, List<String>, String) -> Unit, fulfillRequest: (String) -> Unit, setRole: (UserRole) -> Unit, setAlarmAssignment: (String, Boolean) -> Unit) {
     val context = LocalContext.current
     val activity = context as MainActivity
     val scope = rememberCoroutineScope()
@@ -116,6 +119,9 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
     var newProfile by remember { mutableStateOf(false) }
     var driveStatus by remember { mutableStateOf("Non collegato") }
     var recoveryMode by remember { mutableStateOf<String?>(null) }
+    var requestEditor by remember { mutableStateOf(false) }
+    var role by remember { mutableStateOf(DeviceSettings(context).role) }
+    var assignments by remember { mutableStateOf(DeviceSettings(context).assignedPatients()) }
     fun uploadSpike(token: String) {
         val patientId = snapshot.patients.firstOrNull()?.id ?: return
         driveStatus = "Verifica cifrata in corso…"
@@ -139,12 +145,18 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
     }
     Page {
         Heading("Impostazioni")
+        Text("Uso dell’app", style = MaterialTheme.typography.titleMedium)
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) { UserRole.entries.forEachIndexed { index, item -> SegmentedButton(selected = role == item, onClick = { role = item; setRole(item) }, shape = SegmentedButtonDefaults.itemShape(index, UserRole.entries.size), label = { Text(when(item) { UserRole.SELF -> "Per me"; UserRole.CAREGIVER -> "Gestore"; UserRole.BOTH -> "Entrambi" }) }) } }
         Text("Profili", style = MaterialTheme.typography.titleMedium)
-        snapshot.patients.forEach { Text("${if (it.type == PatientType.HUMAN) "Persona" else "Animale"}: ${it.alias}") }
+        snapshot.patients.forEach { patient -> Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Checkbox(patient.id in assignments, { enabled -> assignments = if (enabled) assignments + patient.id else assignments - patient.id; setAlarmAssignment(patient.id, enabled) }); Column { Text("${if (patient.type == PatientType.HUMAN) "Persona" else "Animale"}: ${patient.alias}"); Text(if (patient.id in assignments) "Sveglie su questo telefono" else "Nessuna sveglia su questo telefono", style = MaterialTheme.typography.bodySmall) } } }
         OutlinedButton(onClick = { newProfile = true }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.PersonAdd, null); Spacer(Modifier.width(8.dp)); Text("Aggiungi profilo") }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         PermissionRow("Notifiche", notificationsGranted) { if (Build.VERSION.SDK_INT >= 33) notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }
         PermissionRow("Sveglie esatte", exact) { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)) }
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        Text("Richieste", style = MaterialTheme.typography.titleMedium)
+        snapshot.requests.take(3).forEach { request -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Text("${request.status.name.lowercase()} · ${formatDate(request.createdAtEpochMillis)}", modifier = Modifier.weight(1f)); if (request.status != RequestStatus.FULFILLED) TextButton(onClick = { fulfillRequest(request.id) }) { Text("Consegnato") } } }
+        OutlinedButton(onClick = { requestEditor = true }, enabled = snapshot.patients.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.PostAdd, null); Spacer(Modifier.width(8.dp)); Text("Nuova richiesta cumulativa") }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         Text("Documenti", style = MaterialTheme.typography.titleMedium)
         OutlinedButton(onClick = { PdfExporter.share(context, PdfExporter.adherence(context, snapshot)) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.PictureAsPdf, null); Spacer(Modifier.width(8.dp)); Text("Report aderenza PDF") }
@@ -158,6 +170,7 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
         OutlinedButton(onClick = { NotificationHelper.show(context, "test") }, enabled = notificationsGranted, modifier = Modifier.fillMaxWidth()) { Text("Invia notifica di prova") }
     }
     if (newProfile) PatientDialog(onDismiss = { newProfile = false }) { alias, type -> addPatient(alias, type); newProfile = false }
+    if (requestEditor) RefillRequestDialog(snapshot, onDismiss = { requestEditor = false }) { patientId, meds, extra -> createRequest(patientId, meds, extra); requestEditor = false }
     recoveryMode?.let { mode -> RecoveryDialog(mode == "export", onDismiss = { recoveryMode = null }) { code, packageText ->
         runCatching {
             if (mode == "export") {
@@ -174,6 +187,14 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
         }.onFailure { driveStatus = "Recupero fallito: ${it.message}" }
         recoveryMode = null
     } }
+}
+
+@Composable private fun RefillRequestDialog(snapshot: TherapySnapshot, onDismiss: () -> Unit, onSave: (String, List<String>, String) -> Unit) {
+    var patient by remember { mutableStateOf(snapshot.patients.first().id) }
+    var selected by remember { mutableStateOf(setOf<String>()) }
+    var extra by remember { mutableStateOf("") }
+    val medicines = snapshot.medications.filter { it.patientId == patient }
+    AlertDialog(onDismissRequest = onDismiss, title = { Text("Richiesta farmaci") }, text = { LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) { item { Text("Paziente: ${snapshot.patients.first { it.id == patient }.alias}"); if (snapshot.patients.size > 1) TextButton(onClick = { patient = snapshot.patients[(snapshot.patients.indexOfFirst { it.id == patient } + 1) % snapshot.patients.size].id; selected = emptySet() }) { Text("Cambia paziente") } }; items(medicines) { med -> Row(verticalAlignment = Alignment.CenterVertically) { Checkbox(med.id in selected, { checked -> selected = if (checked) selected + med.id else selected - med.id }); Text(listOfNotNull(med.name, med.strength).joinToString(" ")) } }; item { OutlinedTextField(extra, { extra = it }, label = { Text("Voce manuale o note") }, minLines = 3) } } }, confirmButton = { TextButton(onClick = { onSave(patient, selected.toList(), extra) }, enabled = selected.isNotEmpty() || extra.isNotBlank()) { Text("Salva") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Annulla") } })
 }
 
 @Composable private fun RecoveryDialog(export: Boolean, onDismiss: () -> Unit, onConfirm: (String, String) -> Unit) {
