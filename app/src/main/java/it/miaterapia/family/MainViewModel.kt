@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import it.miaterapia.family.settings.DeviceSettings
 import it.miaterapia.family.settings.UserRole
 import it.miaterapia.family.notifications.AlarmScheduler
+import java.time.LocalTime
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = (application as MiaTerapiaApplication).repository
@@ -23,7 +24,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init { viewModelScope.launch { repository.seedIfEmpty() } }
     fun confirm(id: String) { viewModelScope.launch { if (repository.confirmDose(id)) AlarmScheduler(getApplication()).cancel(id) } }
     fun addPatient(alias: String, type: PatientType) = runAction { repository.addPatient(alias, type) }
-    fun addMedication(patientId: String, name: String, form: String, strength: String?, amount: String, unit: StockUnit, hour: Int, minute: Int) = runAction { repository.addMedication(patientId, name, form, strength, amount, unit, hour, minute) }
+    fun addMedication(patientId: String, name: String, form: String, strength: String?, amount: String, unit: StockUnit, times: List<String>) = runAction { repository.addMedication(patientId, name, form, strength, amount, unit, times.map(LocalTime::parse)) }
     fun addStock(medicationId: String, amount: String, unit: StockUnit) = runAction { repository.addStock(medicationId, amount, unit) }
     fun archiveMedication(id: String) = runAction { repository.archiveMedication(id) }
     fun reverseDose(id: String) = runAction { repository.reverseDose(id) }

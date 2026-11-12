@@ -17,7 +17,8 @@ data class ScheduleRule(
     val daysOfWeek: Set<DayOfWeek> = DayOfWeek.entries.toSet(),
     val zoneId: ZoneId,
     val doseAmount: BigDecimal,
-    val doseUnit: StockUnit
+    val doseUnit: StockUnit,
+    val scheduleId: String = "default"
 ) {
     init {
         require(times.isNotEmpty()) { "Serve almeno un orario" }
@@ -50,7 +51,7 @@ object ScheduleEngine {
             if (date.dayOfWeek in rule.daysOfWeek) rule.times.sorted().forEach { time ->
                 val scheduled = ZonedDateTime.of(date, time, rule.zoneId)
                 results += PlannedOccurrence(
-                    occurrenceId = stableOccurrenceId(date, time, rule.zoneId),
+                    occurrenceId = stableOccurrenceId(rule.scheduleId, date, time, rule.zoneId),
                     scheduledAt = scheduled,
                     doseAmount = rule.doseAmount,
                     doseUnit = rule.doseUnit
@@ -61,8 +62,8 @@ object ScheduleEngine {
         return results
     }
 
-    private fun stableOccurrenceId(date: LocalDate, time: LocalTime, zone: ZoneId): String =
-        UUID.nameUUIDFromBytes("$date|$time|${zone.id}".toByteArray()).toString()
+    private fun stableOccurrenceId(scheduleId: String, date: LocalDate, time: LocalTime, zone: ZoneId): String =
+        UUID.nameUUIDFromBytes("$scheduleId|$date|$time|${zone.id}".toByteArray()).toString()
 }
 
 data class StockEntry(val amount: BigDecimal, val unit: StockUnit)

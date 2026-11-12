@@ -11,6 +11,8 @@ import it.miaterapia.family.domain.TherapyLimits
 import android.content.Context
 import it.miaterapia.family.notifications.AlarmScheduler
 import it.miaterapia.family.settings.DeviceSettings
+import it.miaterapia.family.domain.ScheduleEngine
+import it.miaterapia.family.domain.ScheduleRule
 
 data class TherapySnapshot(val patients: List<PatientEntity> = emptyList(), val medications: List<MedicationEntity> = emptyList(), val doses: List<DoseOccurrenceEntity> = emptyList(), val movements: List<StockMovementEntity> = emptyList(), val requests: List<RefillRequestEntity> = emptyList())
 
@@ -36,17 +38,26 @@ class TherapyRepository(private val context: Context, private val db: AppDatabas
         dao.insertPatient(PatientEntity(alias = alias.trim(), type = type))
     }
 
-    suspend fun addMedication(patientId: String, name: String, form: String, strength: String?, amount: String, unit: StockUnit, hour: Int, minute: Int) = db.withTransaction {
+    suspend fun addMedication(patientId: String, name: String, form: String, strength: String?, amount: String, unit: StockUnit, times: List<LocalTime>) = db.withTransaction {
         require(name.isNotBlank() && form.isNotBlank()) { "Nome e forma sono obbligatori" }
         val decimal = amount.toBigDecimal()
         require(decimal > BigDecimal.ZERO) { "La dose deve essere positiva" }
+        require(times.isNotEmpty() && times.size <= 5 && times.distinct().size == times.size) { "Inserisci da 1 a 5 orari diversi" }
         require(TherapyLimits.canActivateMedication(dao.activeMedicationCount(patientId))) { "Limite di 30 farmaci attivi raggiunto" }
         val medication = MedicationEntity(patientId = patientId, name = name.trim(), form = form.trim(), strength = strength?.trim()?.ifBlank { null })
-        val scheduled = LocalDate.now().atTime(hour, minute).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val today = LocalDate.now()
+        val zone = ZoneId.systemDefault()
+        val plan = TreatmentPlanEntity(patientId = patientId, medicationId = medication.id, startDate = today.toString(), endDate = null, zoneId = zone.id)
+        val phase = SchedulePhaseEntity(planId = plan.id, startDate = today.toString(), endDate = null, timesCsv = times.sorted().joinToString(","), doseAmount = decimal.toPlainString(), doseUnit = unit)
         dao.insertMedication(medication)
-        val occurrence = DoseOccurrenceEntity(id = UUID.randomUUID().toString(), patientId = patientId, medicationId = medication.id, scheduledAtEpochMillis = scheduled, doseAmount = decimal.toPlainString(), doseUnit = unit)
-        dao.insertDose(occurrence)
-        if (DeviceSettings(context).isAlarmAssigned(patientId) && scheduled > System.currentTimeMillis()) AlarmScheduler(context).schedule(occurrence.id, scheduled)
+        dao.insertPlan(plan)
+        dao.insertPhase(phase)
+        ScheduleEngine.generate(ScheduleRule(today, null, times, zoneId = zone, doseAmount = decimal, doseUnit = unit, scheduleId = phase.id), today, 14).forEach { planned ->
+            val scheduled = planned.scheduledAt.toInstant().toEpochMilli()
+            val occurrence = DoseOccurrenceEntity(id = planned.occurrenceId, patientId = patientId, medicationId = medication.id, scheduledAtEpochMillis = scheduled, doseAmount = decimal.toPlainString(), doseUnit = unit)
+            dao.insertDose(occurrence)
+            if (DeviceSettings(context).isAlarmAssigned(patientId) && scheduled > System.currentTimeMillis()) AlarmScheduler(context).schedule(occurrence.id, scheduled)
+        }
     }
 
     suspend fun addStock(medicationId: String, amount: String, unit: StockUnit) {

@@ -23,6 +23,8 @@ interface TherapyDao {
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertMedication(item: MedicationEntity)
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertDoses(items: List<DoseOccurrenceEntity>)
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertDose(item: DoseOccurrenceEntity)
+    @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertPlan(item: TreatmentPlanEntity)
+    @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertPhase(item: SchedulePhaseEntity)
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertMovement(item: StockMovementEntity): Long
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertEvent(item: DoseEventEntity): Long
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertRefillRequest(item: RefillRequestEntity)
