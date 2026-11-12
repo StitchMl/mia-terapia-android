@@ -58,6 +58,16 @@ class TherapyRulesTest {
         assertEquals(1, ScheduleEngine.generate(rule, date, 1).size)
     }
 
+    @Test fun separateSchedulesNeverShareOccurrenceIds() {
+        val date = LocalDate.of(2026, 11, 12)
+        val common = listOf(LocalTime.of(8, 0), LocalTime.of(20, 0))
+        val first = ScheduleRule(date, null, common, zoneId = ZoneId.of("Europe/Rome"), doseAmount = BigDecimal.ONE, doseUnit = StockUnit.TABLET, scheduleId = "plan-a")
+        val second = first.copy(scheduleId = "plan-b")
+        val firstIds = ScheduleEngine.generate(first, date, 14).map { it.occurrenceId }.toSet()
+        val secondIds = ScheduleEngine.generate(second, date, 14).map { it.occurrenceId }.toSet()
+        assertTrue(firstIds.intersect(secondIds).isEmpty())
+    }
+
     @Test fun stateMachineAllowsRepeatedSnooze() {
         val machine = DoseStateMachine()
         machine.notified(); machine.snoozed(); machine.notified(); machine.snoozed(); machine.taken()
