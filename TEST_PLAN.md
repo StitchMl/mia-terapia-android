@@ -7,7 +7,7 @@
 - T04: penna conteggiata in dosi, non milligrammi
 - Android Lint `lintDebug`
 - Report copertura JaCoCo
-- SonarQube Cloud con Quality Gate bloccante
+- SonarQube Cloud automatico con Quality Gate Sonar way
 
 ## Da eseguire su dispositivo
 
