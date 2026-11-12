@@ -49,4 +49,13 @@ class TherapyRepository(private val db: AppDatabase) {
     }
 
     suspend fun archiveMedication(id: String) = dao.archiveMedication(id)
+    suspend fun reverseDose(id: String) = dao.reverseDose(id, System.currentTimeMillis())
+    suspend fun recordAsNeeded(patientId: String, medicationId: String, amount: String, unit: StockUnit): Boolean = db.withTransaction {
+        val decimal = amount.toBigDecimal()
+        require(decimal > BigDecimal.ZERO) { "La quantità deve essere positiva" }
+        val now = System.currentTimeMillis()
+        val occurrence = DoseOccurrenceEntity(patientId = patientId, medicationId = medicationId, scheduledAtEpochMillis = now, doseAmount = decimal.toPlainString(), doseUnit = unit)
+        dao.insertDose(occurrence)
+        dao.confirmDose(occurrence.id, now)
+    }
 }

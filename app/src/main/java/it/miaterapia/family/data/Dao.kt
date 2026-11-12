@@ -29,6 +29,7 @@ interface TherapyDao {
     @Query("UPDATE medications SET active = 0 WHERE id = :id") suspend fun archiveMedication(id: String)
     @Query("SELECT * FROM sync_outbox WHERE status IN ('PENDING','FAILED') AND nextAttemptAtEpochMillis <= :now ORDER BY nextAttemptAtEpochMillis LIMIT :limit") suspend fun pendingOutbox(now: Long, limit: Int = 20): List<SyncOutboxEntity>
     @Query("UPDATE sync_outbox SET status = :status, attempts = attempts + :attemptIncrement, nextAttemptAtEpochMillis = :nextAttempt, lastError = :error WHERE id = :id") suspend fun updateOutbox(id: String, status: OutboxStatus, attemptIncrement: Int, nextAttempt: Long, error: String?)
+    @Query("SELECT COUNT(*) FROM stock_movements WHERE causeOccurrenceId = :occurrenceId AND type = :type") suspend fun movementCount(occurrenceId: String, type: MovementType): Int
 
     @Transaction
     suspend fun confirmDose(id: String, confirmedAt: Long): Boolean {
@@ -61,6 +62,23 @@ interface TherapyDao {
             else -> return true
         }
         insertEvent(DoseEventEntity(occurrenceId = id, type = type, occurredAtEpochMillis = at, actorDeviceId = "local"))
+        return true
+    }
+
+    @Transaction
+    suspend fun reverseDose(id: String, at: Long): Boolean {
+        val current = dose(id) ?: return false
+        if (current.status != DoseStatus.TAKEN) return false
+        val inserted = insertMovement(StockMovementEntity(
+            medicationId = current.medicationId,
+            causeOccurrenceId = current.id,
+            amountDecimal = current.doseAmount,
+            unit = current.doseUnit,
+            type = MovementType.REVERSAL
+        ))
+        if (inserted == -1L) return false
+        updateDose(current.copy(status = DoseStatus.UNCONFIRMED, confirmedAtEpochMillis = null))
+        insertEvent(DoseEventEntity(occurrenceId = id, type = EventType.CORRECTION, occurredAtEpochMillis = at, actorDeviceId = "local", note = "Conferma rettificata"))
         return true
     }
 }

@@ -65,7 +65,7 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = { TopAppBar(title = { Column { Text("MiaTerapia"); Text("Dati dimostrativi", style = MaterialTheme.typography.labelMedium) } }) },
         bottomBar = { NavigationBar { Tab.entries.forEach { item -> NavigationBarItem(selected = tab == item, onClick = { tab = item }, icon = { Icon(when(item) { Tab.TODAY -> Icons.Outlined.Today; Tab.THERAPIES -> Icons.Outlined.Medication; Tab.STOCK -> Icons.Outlined.Inventory2; Tab.LOG -> Icons.Outlined.History; Tab.SETTINGS -> Icons.Outlined.Settings }, null) }, label = { Text(item.label) }) } } }
-    ) { padding -> Box(Modifier.padding(padding).fillMaxSize()) { when(tab) { Tab.TODAY -> TodayScreen(snapshot, vm::confirm); Tab.THERAPIES -> TherapiesScreen(snapshot, vm::addMedication, vm::archiveMedication); Tab.STOCK -> StockScreen(snapshot, vm::addStock); Tab.LOG -> LogScreen(snapshot); Tab.SETTINGS -> SettingsScreen(snapshot, vm::addPatient) } } }
+    ) { padding -> Box(Modifier.padding(padding).fillMaxSize()) { when(tab) { Tab.TODAY -> TodayScreen(snapshot, vm::confirm); Tab.THERAPIES -> TherapiesScreen(snapshot, vm::addMedication, vm::archiveMedication, vm::recordAsNeeded); Tab.STOCK -> StockScreen(snapshot, vm::addStock); Tab.LOG -> LogScreen(snapshot, vm::reverseDose); Tab.SETTINGS -> SettingsScreen(snapshot, vm::addPatient) } } }
 }
 
 @Composable private fun Page(content: @Composable ColumnScope.() -> Unit) = LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { item { Column(content = content) } }
@@ -90,9 +90,9 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
     }
 }
 
-@Composable private fun TherapiesScreen(s: TherapySnapshot, add: (String, String, String, String?, String, StockUnit, Int, Int) -> Unit, archive: (String) -> Unit) {
+@Composable private fun TherapiesScreen(s: TherapySnapshot, add: (String, String, String, String?, String, StockUnit, Int, Int) -> Unit, archive: (String) -> Unit, asNeeded: (String, String, String, StockUnit) -> Unit) {
     var editing by remember { mutableStateOf(false) }
-    Page { Heading("Terapie"); Text("Farmaci attivi per ogni profilo."); Button(onClick = { editing = true }, enabled = s.patients.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.Add, null); Spacer(Modifier.width(8.dp)); Text("Aggiungi terapia") }; Spacer(Modifier.height(8.dp)); s.medications.forEach { med -> OutlinedCard(Modifier.fillMaxWidth()) { Row(Modifier.padding(18.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Column { Text(med.name, style = MaterialTheme.typography.titleMedium); Text(listOfNotNull(med.form, med.strength).joinToString(" · ")) }; IconButton(onClick = { archive(med.id) }) { Icon(Icons.Outlined.Archive, "Archivia") } } }; Spacer(Modifier.height(10.dp)) } }
+    Page { Heading("Terapie"); Text("Farmaci attivi per ogni profilo."); Button(onClick = { editing = true }, enabled = s.patients.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.Add, null); Spacer(Modifier.width(8.dp)); Text("Aggiungi terapia") }; Spacer(Modifier.height(8.dp)); s.medications.forEach { med -> OutlinedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(18.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Column { Text(med.name, style = MaterialTheme.typography.titleMedium); Text(listOfNotNull(med.form, med.strength).joinToString(" · ")) }; IconButton(onClick = { archive(med.id) }) { Icon(Icons.Outlined.Archive, "Archivia") } }; TextButton(onClick = { asNeeded(med.patientId, med.id, "1", StockUnit.TABLET) }) { Text("Registra assunzione al bisogno") } } }; Spacer(Modifier.height(10.dp)) } }
     if (editing) MedicationDialog(s.patients, onDismiss = { editing = false }) { patient, name, form, strength, amount, unit, hour, minute -> add(patient, name, form, strength, amount, unit, hour, minute); editing = false }
 }
 
@@ -104,7 +104,7 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
     if (editing) StockDialog(s.medications, onDismiss = { editing = false }) { med, amount, unit -> addStock(med, amount, unit); editing = false }
 }
 
-@Composable private fun LogScreen(s: TherapySnapshot) = Page { Heading("Registro"); Text("Cronologia locale. Le correzioni future conserveranno gli eventi originali."); Spacer(Modifier.height(8.dp)); s.doses.filter { it.status == DoseStatus.TAKEN }.forEach { dose -> ListItem(headlineContent = { Text("Dose confermata") }, supportingContent = { Text("${formatDate(dose.confirmedAtEpochMillis ?: dose.scheduledAtEpochMillis)} · ${dose.doseAmount} ${unitLabel(dose.doseUnit)}") }, leadingContent = { Icon(Icons.Outlined.CheckCircle, null, tint = MaterialTheme.colorScheme.primary) }) } }
+@Composable private fun LogScreen(s: TherapySnapshot, reverse: (String) -> Unit) = Page { Heading("Registro"); Text("Cronologia locale; le rettifiche conservano l’evento originale."); Spacer(Modifier.height(8.dp)); s.doses.filter { it.status == DoseStatus.TAKEN }.forEach { dose -> ListItem(headlineContent = { Text("Dose confermata") }, supportingContent = { Text("${formatDate(dose.confirmedAtEpochMillis ?: dose.scheduledAtEpochMillis)} · ${dose.doseAmount} ${unitLabel(dose.doseUnit)}") }, leadingContent = { Icon(Icons.Outlined.CheckCircle, null, tint = MaterialTheme.colorScheme.primary) }, trailingContent = { TextButton(onClick = { reverse(dose.id) }) { Text("Rettifica") } }) } }
 
 @Composable private fun SettingsScreen(snapshot: TherapySnapshot, addPatient: (String, PatientType) -> Unit) {
     val context = LocalContext.current

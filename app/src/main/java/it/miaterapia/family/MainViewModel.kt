@@ -23,6 +23,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun addMedication(patientId: String, name: String, form: String, strength: String?, amount: String, unit: StockUnit, hour: Int, minute: Int) = runAction { repository.addMedication(patientId, name, form, strength, amount, unit, hour, minute) }
     fun addStock(medicationId: String, amount: String, unit: StockUnit) = runAction { repository.addStock(medicationId, amount, unit) }
     fun archiveMedication(id: String) = runAction { repository.archiveMedication(id) }
+    fun reverseDose(id: String) = runAction { repository.reverseDose(id) }
+    fun recordAsNeeded(patientId: String, medicationId: String, amount: String, unit: StockUnit) = runAction { repository.recordAsNeeded(patientId, medicationId, amount, unit) }
     private fun runAction(action: suspend () -> Unit) = viewModelScope.launch {
         runCatching { action() }.onFailure { _messages.emit(it.message ?: "Operazione non riuscita") }
     }

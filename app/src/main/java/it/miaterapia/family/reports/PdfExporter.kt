@@ -10,6 +10,7 @@ import it.miaterapia.family.data.TherapySnapshot
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
 object PdfExporter {
@@ -23,9 +24,18 @@ object PdfExporter {
             add("Generato: ${format(System.currentTimeMillis())}")
             add("Profili: ${snapshot.patients.joinToString { it.alias }}")
             add("")
-            snapshot.doses.sortedBy { it.scheduledAtEpochMillis }.forEach { dose ->
-                val medicine = snapshot.medications.firstOrNull { it.id == dose.medicationId }?.name ?: "Farmaco"
-                add("${format(dose.scheduledAtEpochMillis)} · $medicine · ${dose.doseAmount} ${dose.doseUnit.name.lowercase()} · ${dose.status.name}")
+            val month = YearMonth.now()
+            ReportLayout.dayRanges(month.lengthOfMonth()).forEachIndexed { index, range ->
+                if (index > 0) add(PAGE_BREAK)
+                add("Calendario ${month.month.name.lowercase()} ${month.year} · giorni ${range.first}–${range.last}")
+                range.forEach { day ->
+                    val daily = snapshot.doses.filter { Instant.ofEpochMilli(it.scheduledAtEpochMillis).atZone(ZoneId.systemDefault()).toLocalDate() == month.atDay(day) }
+                    if (daily.isEmpty()) add(String.format("%02d  Nessuna dose registrata", day))
+                    daily.forEach { dose ->
+                        val medicine = snapshot.medications.firstOrNull { it.id == dose.medicationId }?.name ?: "Farmaco"
+                        add(String.format("%02d  %s · %s %s · %s", day, medicine, dose.doseAmount, dose.doseUnit.name.lowercase(), dose.status.name))
+                    }
+                }
             }
             val completed = snapshot.doses.count { it.status == DoseStatus.TAKEN }
             val relevant = snapshot.doses.count { it.status in setOf(DoseStatus.TAKEN, DoseStatus.SKIPPED, DoseStatus.UNCONFIRMED) }
@@ -81,11 +91,12 @@ object PdfExporter {
         page.canvas.drawText(title, 42f, y, titlePaint)
         y += 34f
         lines.forEach { line ->
-            if (y > 800f) {
+            if (line == PAGE_BREAK || y > 800f) {
                 document.finishPage(page)
                 pageNumber++
                 page = document.startPage(PdfDocument.PageInfo.Builder(595, 842, pageNumber).create())
                 y = 52f
+                if (line == PAGE_BREAK) return@forEach
             }
             page.canvas.drawText(line.take(105), 42f, y, paint)
             y += 19f
@@ -97,4 +108,12 @@ object PdfExporter {
     }
 
     private fun format(epochMillis: Long): String = Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).format(dateFormat)
+    private const val PAGE_BREAK = "\u000C"
+}
+
+object ReportLayout {
+    fun dayRanges(daysInMonth: Int): List<IntRange> {
+        require(daysInMonth in 28..31) { "Numero giorni del mese non valido" }
+        return listOf(1..15, 16..daysInMonth)
+    }
 }

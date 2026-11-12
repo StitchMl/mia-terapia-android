@@ -27,6 +27,7 @@ class DoseAlarmReceiver : BroadcastReceiver() {
             "snooze5" -> snooze(context, id, 5)
             "snooze15" -> snooze(context, id, 15)
             "snooze30" -> snooze(context, id, 30)
+            "continue" -> snooze(context, id, context.getSharedPreferences("snooze", Context.MODE_PRIVATE).getInt(id, 15))
             else -> {
                 update(context, id, DoseStatus.NOTIFIED)
                 NotificationHelper.show(context, id)
@@ -35,6 +36,7 @@ class DoseAlarmReceiver : BroadcastReceiver() {
     }
 
     private fun snooze(context: Context, id: String, minutes: Int) {
+        context.getSharedPreferences("snooze", Context.MODE_PRIVATE).edit().putInt(id, minutes).apply()
         update(context, id, DoseStatus.SNOOZED)
         AlarmScheduler(context).schedule(id, System.currentTimeMillis() + minutes * 60_000L)
         NotificationManagerCompat.from(context).cancel(id.hashCode())
