@@ -34,6 +34,7 @@ import it.miaterapia.family.notifications.NotificationHelper
 import it.miaterapia.family.reports.PdfExporter
 import it.miaterapia.family.security.PatientCrypto
 import it.miaterapia.family.security.PatientKeyStore
+import it.miaterapia.family.security.RecoveryPackageCodec
 import it.miaterapia.family.sync.DriveAuthorization
 import it.miaterapia.family.sync.DriveRestClient
 import kotlinx.coroutines.Dispatchers
@@ -114,6 +115,7 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
     val exact = AlarmScheduler(context).canScheduleExact()
     var newProfile by remember { mutableStateOf(false) }
     var driveStatus by remember { mutableStateOf("Non collegato") }
+    var recoveryMode by remember { mutableStateOf<String?>(null) }
     fun uploadSpike(token: String) {
         val patientId = snapshot.patients.firstOrNull()?.id ?: return
         driveStatus = "Verifica cifrata in corso…"
@@ -151,9 +153,32 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
         Text("Google Drive", style = MaterialTheme.typography.titleMedium)
         Text(driveStatus)
         Button(onClick = { DriveAuthorization.authorize(activity, { driveResolution.launch(IntentSenderRequest.Builder(it).build()) }, ::uploadSpike) { driveStatus = "Errore OAuth: $it" } }, enabled = snapshot.patients.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.CloudSync, null); Spacer(Modifier.width(8.dp)); Text("Collega e verifica Drive") }
+        OutlinedButton(onClick = { recoveryMode = "export" }, enabled = snapshot.patients.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.Key, null); Spacer(Modifier.width(8.dp)); Text("Crea pacchetto recupero") }
+        OutlinedButton(onClick = { recoveryMode = "import" }, modifier = Modifier.fillMaxWidth()) { Text("Ripristina chiave") }
         OutlinedButton(onClick = { NotificationHelper.show(context, "test") }, enabled = notificationsGranted, modifier = Modifier.fillMaxWidth()) { Text("Invia notifica di prova") }
     }
     if (newProfile) PatientDialog(onDismiss = { newProfile = false }) { alias, type -> addPatient(alias, type); newProfile = false }
+    recoveryMode?.let { mode -> RecoveryDialog(mode == "export", onDismiss = { recoveryMode = null }) { code, packageText ->
+        runCatching {
+            if (mode == "export") {
+                val patientId = snapshot.patients.first().id
+                val key = PatientKeyStore(context).getOrCreate(patientId)
+                val pack = PatientCrypto.createRecoveryPackage(patientId, key, code.toCharArray())
+                PdfExporter.shareRecovery(context, patientId, RecoveryPackageCodec.encode(patientId, pack))
+            } else {
+                val decoded = RecoveryPackageCodec.decode(packageText)
+                val key = PatientCrypto.recoverPatientKey(decoded.first, decoded.second, code.toCharArray())
+                PatientKeyStore(context).importRecovered(decoded.first, key)
+                driveStatus = "Chiave ripristinata"
+            }
+        }.onFailure { driveStatus = "Recupero fallito: ${it.message}" }
+        recoveryMode = null
+    } }
+}
+
+@Composable private fun RecoveryDialog(export: Boolean, onDismiss: () -> Unit, onConfirm: (String, String) -> Unit) {
+    var code by remember { mutableStateOf("") }; var packageText by remember { mutableStateOf("") }
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(if (export) "Pacchetto recupero" else "Ripristina chiave") }, text = { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { Text("Usa un codice di almeno 12 caratteri e conservalo separato dal file."); OutlinedTextField(code, { code = it }, label = { Text("Codice recupero") }, singleLine = true); if (!export) OutlinedTextField(packageText, { packageText = it }, label = { Text("Contenuto pacchetto") }, minLines = 4) } }, confirmButton = { TextButton(onClick = { onConfirm(code, packageText) }, enabled = code.length >= 12 && (export || packageText.isNotBlank())) { Text(if (export) "Crea" else "Ripristina") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Annulla") } })
 }
 
 @Composable private fun PatientDialog(onDismiss: () -> Unit, onSave: (String, PatientType) -> Unit) {

@@ -58,6 +58,17 @@ object PdfExporter {
         }, "Condividi PDF"))
     }
 
+    fun shareRecovery(context: Context, patientId: String, content: String) {
+        val directory = File(context.cacheDir, "reports").apply { mkdirs() }
+        val file = File(directory, "recupero-$patientId.miaterapia").apply { writeText(content) }
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+            type = "application/octet-stream"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }, "Salva pacchetto di recupero"))
+    }
+
     private fun create(context: Context, name: String, title: String, lines: List<String>): File {
         val directory = File(context.cacheDir, "reports").apply { mkdirs() }
         val file = File(directory, name)
