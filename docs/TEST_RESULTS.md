@@ -1,7 +1,7 @@
 # Risultati test
 
 Data: 12 novembre 2026  
-Commit base: `d77a2f163f501b7786b65b83165485f2cbded727`  
+Commit base: `a5c7d31`  
 Dispositivo: Samsung SM-S942B, Android 17, seriale `R3GL603F40X`
 
 ## Automatizzati JVM
@@ -27,6 +27,18 @@ Copertura diretta JVM: T01–T05, T14, T18, isolamento crittografico e invariant
 
 `adb install -r app-debug.apk`: riuscita. Migrazione Room 1→2 riuscita senza cancellare dati. Processo avviato senza crash AndroidRuntime.
 
-## Da eseguire dopo OAuth
+## Google Drive OAuth — prova reale
 
-T09–T13 e T15–T17 richiedono prove temporali, offline o su lockscreen. T20–T24 richiedono Drive autorizzato e secondo account/dispositivo. T25 richiede verifica visiva del PDF A4 di 31 giorni.
+- progetto Google Cloud: `miaterapia`, senza account di fatturazione;
+- Google Drive API abilitata;
+- client OAuth Android limitato a pacchetto `it.miaterapia.family` e SHA-1 della build debug;
+- unico ambito dichiarato: `https://www.googleapis.com/auth/drive.file` (non sensibile);
+- account di prova: `matteo.lagioia@gmail.com`;
+- consenso eseguito sul Samsung SM-S942B;
+- creazione albero `MiaTerapia/v1/patients/{patientId}/events` e upload `.enc` riusciti;
+- conferma mostrata dall'app: `Collegato. Scrittura cifrata riuscita`;
+- nessun crash `AndroidRuntime` durante la prova.
+
+## Prove ancora da completare
+
+T09–T13 e T15–T17 richiedono prove temporali, offline o su lockscreen. T20–T24 richiedono scenari di revoca, secondo account/dispositivo, timeout e corruzione. T25 richiede verifica visiva del PDF A4 di 31 giorni.
