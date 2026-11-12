@@ -15,10 +15,12 @@ interface TherapyDao {
     @Query("SELECT * FROM dose_occurrences WHERE status NOT IN ('CANCELLED') ORDER BY scheduledAtEpochMillis") fun doses(): Flow<List<DoseOccurrenceEntity>>
     @Query("SELECT * FROM stock_movements ORDER BY createdAtEpochMillis DESC") fun stockMovements(): Flow<List<StockMovementEntity>>
     @Query("SELECT * FROM dose_occurrences WHERE id = :id") suspend fun dose(id: String): DoseOccurrenceEntity?
+    @Query("SELECT * FROM dose_occurrences WHERE status IN ('PLANNED','NOTIFIED','SNOOZED') AND scheduledAtEpochMillis >= :from AND scheduledAtEpochMillis <= :until ORDER BY scheduledAtEpochMillis") suspend fun upcomingDoses(from: Long, until: Long): List<DoseOccurrenceEntity>
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertPatients(items: List<PatientEntity>)
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertMedications(items: List<MedicationEntity>)
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertDoses(items: List<DoseOccurrenceEntity>)
     @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertMovement(item: StockMovementEntity): Long
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun insertEvent(item: DoseEventEntity): Long
     @Update suspend fun updateDose(item: DoseOccurrenceEntity)
 
     @Transaction
@@ -34,6 +36,24 @@ interface TherapyDao {
         ))
         if (inserted == -1L) return false
         updateDose(current.copy(status = DoseStatus.TAKEN, confirmedAtEpochMillis = confirmedAt))
+        insertEvent(DoseEventEntity(occurrenceId = id, type = EventType.TAKEN, occurredAtEpochMillis = confirmedAt, actorDeviceId = "local"))
+        return true
+    }
+
+    @Transaction
+    suspend fun changeDoseStatus(id: String, status: DoseStatus, at: Long): Boolean {
+        val current = dose(id) ?: return false
+        if (current.status in setOf(DoseStatus.TAKEN, DoseStatus.SKIPPED, DoseStatus.CANCELLED)) return false
+        updateDose(current.copy(status = status))
+        val type = when (status) {
+            DoseStatus.NOTIFIED -> EventType.NOTIFIED
+            DoseStatus.SNOOZED -> EventType.SNOOZED
+            DoseStatus.SKIPPED -> EventType.SKIPPED
+            DoseStatus.UNCONFIRMED -> EventType.UNCONFIRMED
+            DoseStatus.CANCELLED -> EventType.CANCELLED
+            else -> return true
+        }
+        insertEvent(DoseEventEntity(occurrenceId = id, type = type, occurredAtEpochMillis = at, actorDeviceId = "local"))
         return true
     }
 }

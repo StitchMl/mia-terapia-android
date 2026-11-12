@@ -23,7 +23,8 @@ object NotificationHelper {
         val open = PendingIntent.getActivity(context, occurrenceId.hashCode(), Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val taken = PendingIntent.getBroadcast(context, occurrenceId.hashCode() + 1, Intent(context, DoseAlarmReceiver::class.java).putExtra("occurrenceId", occurrenceId).putExtra("action", "taken"), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val snooze = PendingIntent.getBroadcast(context, occurrenceId.hashCode() + 2, Intent(context, DoseAlarmReceiver::class.java).putExtra("occurrenceId", occurrenceId).putExtra("action", "snooze15"), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID).setSmallIcon(R.drawable.ic_app).setContentTitle("Promemoria terapia").setContentText("Apri MiaTerapia per controllare la dose").setContentIntent(open).setAutoCancel(true).setPriority(NotificationCompat.PRIORITY_HIGH).addAction(0, "Preso", taken).addAction(0, "Posponi 15 min", snooze).build()
+        val skip = PendingIntent.getBroadcast(context, occurrenceId.hashCode() + 3, Intent(context, DoseAlarmReceiver::class.java).putExtra("occurrenceId", occurrenceId).putExtra("action", "skip"), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID).setSmallIcon(R.drawable.ic_app).setContentTitle("Promemoria terapia").setContentText("Apri MiaTerapia per controllare la dose").setContentIntent(open).setAutoCancel(false).setPriority(NotificationCompat.PRIORITY_HIGH).setCategory(NotificationCompat.CATEGORY_ALARM).addAction(0, "Preso", taken).addAction(0, "Posponi 15 min", snooze).addAction(0, "Salta", skip).build()
         NotificationManagerCompat.from(context).notify(occurrenceId.hashCode(), notification)
     }
 }

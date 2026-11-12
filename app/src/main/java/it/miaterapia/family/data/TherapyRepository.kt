@@ -21,4 +21,6 @@ class TherapyRepository(private val db: AppDatabase) {
         dao.insertMovement(StockMovementEntity(id = "stock-demo", medicationId = medication.id, causeOccurrenceId = null, amountDecimal = "30", unit = StockUnit.TABLET, type = MovementType.INITIAL))
     }
     suspend fun confirmDose(id: String) = dao.confirmDose(id, System.currentTimeMillis())
+    suspend fun changeDoseStatus(id: String, status: DoseStatus) = dao.changeDoseStatus(id, status, System.currentTimeMillis())
+    suspend fun upcomingDoses(from: Long, until: Long) = dao.upcomingDoses(from, until)
 }

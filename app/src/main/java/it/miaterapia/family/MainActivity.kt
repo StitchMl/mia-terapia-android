@@ -29,6 +29,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import it.miaterapia.family.data.*
 import it.miaterapia.family.notifications.AlarmScheduler
 import it.miaterapia.family.notifications.NotificationHelper
+import it.miaterapia.family.reports.PdfExporter
 import it.miaterapia.family.ui.MiaTerapiaTheme
 import java.time.Instant
 import java.time.ZoneId
@@ -50,7 +51,7 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
     Scaffold(
         topBar = { TopAppBar(title = { Column { Text("MiaTerapia"); Text("Dati dimostrativi", style = MaterialTheme.typography.labelMedium) } }) },
         bottomBar = { NavigationBar { Tab.entries.forEach { item -> NavigationBarItem(selected = tab == item, onClick = { tab = item }, icon = { Icon(when(item) { Tab.TODAY -> Icons.Outlined.Today; Tab.THERAPIES -> Icons.Outlined.Medication; Tab.STOCK -> Icons.Outlined.Inventory2; Tab.LOG -> Icons.Outlined.History; Tab.SETTINGS -> Icons.Outlined.Settings }, null) }, label = { Text(item.label) }) } } }
-    ) { padding -> Box(Modifier.padding(padding).fillMaxSize()) { when(tab) { Tab.TODAY -> TodayScreen(snapshot, vm::confirm); Tab.THERAPIES -> TherapiesScreen(snapshot); Tab.STOCK -> StockScreen(snapshot); Tab.LOG -> LogScreen(snapshot); Tab.SETTINGS -> SettingsScreen() } } }
+    ) { padding -> Box(Modifier.padding(padding).fillMaxSize()) { when(tab) { Tab.TODAY -> TodayScreen(snapshot, vm::confirm); Tab.THERAPIES -> TherapiesScreen(snapshot); Tab.STOCK -> StockScreen(snapshot); Tab.LOG -> LogScreen(snapshot); Tab.SETTINGS -> SettingsScreen(snapshot) } } }
 }
 
 @Composable private fun Page(content: @Composable ColumnScope.() -> Unit) = LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) { item { Column(content = content) } }
@@ -85,7 +86,7 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
 
 @Composable private fun LogScreen(s: TherapySnapshot) = Page { Heading("Registro"); Text("Cronologia locale. Le correzioni future conserveranno gli eventi originali."); Spacer(Modifier.height(8.dp)); s.doses.filter { it.status == DoseStatus.TAKEN }.forEach { dose -> ListItem(headlineContent = { Text("Dose confermata") }, supportingContent = { Text("${formatDate(dose.confirmedAtEpochMillis ?: dose.scheduledAtEpochMillis)} · ${dose.doseAmount} ${unitLabel(dose.doseUnit)}") }, leadingContent = { Icon(Icons.Outlined.CheckCircle, null, tint = MaterialTheme.colorScheme.primary) }) } }
 
-@Composable private fun SettingsScreen() {
+@Composable private fun SettingsScreen(snapshot: TherapySnapshot) {
     val context = LocalContext.current
     var notificationsGranted by remember { mutableStateOf(Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) }
     val notificationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { notificationsGranted = it }
@@ -94,6 +95,10 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
         Heading("Impostazioni")
         PermissionRow("Notifiche", notificationsGranted) { if (Build.VERSION.SDK_INT >= 33) notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }
         PermissionRow("Sveglie esatte", exact) { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)) }
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        Text("Documenti", style = MaterialTheme.typography.titleMedium)
+        OutlinedButton(onClick = { PdfExporter.share(context, PdfExporter.adherence(context, snapshot)) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.PictureAsPdf, null); Spacer(Modifier.width(8.dp)); Text("Report aderenza PDF") }
+        OutlinedButton(onClick = { PdfExporter.share(context, PdfExporter.refillRequest(context, snapshot)) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.RequestPage, null); Spacer(Modifier.width(8.dp)); Text("Richiesta farmaci PDF") }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         Text("Google Drive", style = MaterialTheme.typography.titleMedium)
         Text("Disattivato. Prima servono test OAuth tra due account e una procedura di recupero chiavi verificata.")
