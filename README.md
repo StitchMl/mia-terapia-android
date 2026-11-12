@@ -19,10 +19,15 @@ Google Drive, condivisione multi-account e cifratura cloud restano disattivati. 
 
 ```powershell
 ./gradlew.bat testDebugUnitTest
+./gradlew.bat jacocoTestReport lintDebug
 ./gradlew.bat assembleDebug
 ```
 
 APK debug: `app/build/outputs/apk/debug/app-debug.apk`.
+
+## Qualità
+
+GitHub Actions esegue build, test, Android Lint, copertura JaCoCo e analisi SonarQube Cloud. Il Quality Gate Sonar blocca la pipeline quando non supera i controlli. La repository richiede il secret GitHub `SONAR_TOKEN` creato durante il collegamento a SonarQube Cloud.
 
 ## Privacy
 

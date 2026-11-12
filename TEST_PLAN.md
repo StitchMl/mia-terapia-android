@@ -5,6 +5,9 @@
 - T02: calcolo esatto di mezza compressa
 - T03: scarico esatto in millilitri
 - T04: penna conteggiata in dosi, non milligrammi
+- Android Lint `lintDebug`
+- Report copertura JaCoCo
+- SonarQube Cloud con Quality Gate bloccante
 
 ## Da eseguire su dispositivo
 
