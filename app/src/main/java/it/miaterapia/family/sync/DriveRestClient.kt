@@ -8,6 +8,7 @@ import java.net.URI
 import java.net.URLEncoder
 
 class DriveRestClient(private val accessToken: String) {
+    data class RemoteFile(val id: String, val name: String, val modifiedTime: String)
     fun ensureFolder(name: String, parentId: String? = null): String {
         require(name.matches(Regex("[A-Za-z0-9._-]+"))) { "Nome cartella non valido" }
         val clauses = mutableListOf("name = '$name'", "mimeType = 'application/vnd.google-apps.folder'", "trashed = false")
@@ -33,6 +34,27 @@ class DriveRestClient(private val accessToken: String) {
         return JSONObject(response).getString("id")
     }
 
+    fun listEncrypted(parentId: String): List<RemoteFile> {
+        val q = URLEncoder.encode("'$parentId' in parents and trashed = false", Charsets.UTF_8.name())
+        val body = request("GET", "https://www.googleapis.com/drive/v3/files?q=$q&spaces=drive&orderBy=modifiedTime%20desc&fields=files(id,name,modifiedTime)")
+        val files = JSONObject(body).getJSONArray("files")
+        return (0 until files.length()).mapNotNull { index ->
+            val item = files.getJSONObject(index)
+            val name = item.getString("name")
+            if (!name.endsWith(".enc")) null else RemoteFile(item.getString("id"), name, item.optString("modifiedTime"))
+        }
+    }
+
+    fun downloadEncrypted(fileId: String): ByteArray {
+        require(fileId.matches(Regex("[A-Za-z0-9_-]+"))) { "ID Drive non valido" }
+        return requestBytes("GET", "https://www.googleapis.com/drive/v3/files/$fileId?alt=media")
+    }
+
+    fun updateEncrypted(fileId: String, payload: ByteArray) {
+        require(fileId.matches(Regex("[A-Za-z0-9_-]+"))) { "ID Drive non valido" }
+        requestBytes("PATCH", "https://www.googleapis.com/upload/drive/v3/files/$fileId?uploadType=media", payload, "application/octet-stream")
+    }
+
     fun createMiaTerapiaTree(patientId: String): String {
         val root = ensureFolder("MiaTerapia")
         val version = ensureFolder("v1", root)
@@ -42,6 +64,10 @@ class DriveRestClient(private val accessToken: String) {
     }
 
     private fun request(method: String, url: String, body: ByteArray? = null, contentType: String? = null): String {
+        return requestBytes(method, url, body, contentType).toString(Charsets.UTF_8)
+    }
+
+    private fun requestBytes(method: String, url: String, body: ByteArray? = null, contentType: String? = null): ByteArray {
         val connection = URI(url).toURL().openConnection() as HttpURLConnection
         return try {
             connection.requestMethod = method
@@ -56,9 +82,9 @@ class DriveRestClient(private val accessToken: String) {
             }
             val code = connection.responseCode
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-            val text = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
-            if (code !in 200..299) throw IOException("Drive HTTP $code: ${text.take(300)}")
-            text
+            val bytes = stream?.use { it.readBytes() } ?: ByteArray(0)
+            if (code !in 200..299) throw IOException("Drive HTTP $code: ${bytes.toString(Charsets.UTF_8).take(300)}")
+            bytes
         } finally { connection.disconnect() }
     }
 }
