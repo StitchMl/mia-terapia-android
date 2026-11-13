@@ -1,5 +1,13 @@
 # Rilascio
 
+## 0.1.0-alpha
+
+- APK Android 10+ installabile, firmato con certificato debug per il collaudo iniziale.
+- OAuth Google Drive limitato a `drive.file` e verificato sul dispositivo fisico Samsung SM-S942B.
+- Dati Drive cifrati AES-256-GCM prima dell'upload.
+- Quality Gate SonarQube Cloud superato; pipeline GitHub Actions verde.
+- Prima di una distribuzione stabile: creare e custodire una chiave di firma release, registrare il relativo SHA-1 in Google Cloud e completare le prove multi-account/multi-dispositivo.
+
 1. Aggiornare `versionCode` e `versionName`.
 2. Eseguire `testDebugUnitTest`, `lintDebug`, `jacocoTestReport`, `assembleDebug` e i test T01–T25.
 3. Controllare GitHub Actions e SonarQube Cloud Quality Gate.

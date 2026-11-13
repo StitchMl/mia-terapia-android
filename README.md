@@ -4,7 +4,9 @@ Applicazione Android per terapie familiari: profili persona/animale, promemoria,
 
 ## Stato
 
-Versione di sviluppo `0.1.0`. Drive richiede un client OAuth Android associato a `it.miaterapia.family` e al certificato di firma. L’app chiede solo `drive.file` e carica payload AES-256-GCM `.enc`.
+Prima alpha pubblica `0.1.0`. Il client OAuth Android debug è configurato per `it.miaterapia.family`. L’app chiede solo `drive.file` e carica payload AES-256-GCM `.enc`.
+
+L'APK alpha è destinato a prove controllate. Non sostituisce indicazioni mediche e non va usato come unica fonte per terapie urgenti.
 
 ## Requisiti
 
