@@ -1,5 +1,12 @@
 # Rilascio
 
+## 0.1.1-alpha
+
+- Rimossi tutti i seed e i testi dimostrativi dalle build pubblicate.
+- Le nuove installazioni partono senza profili o dati sanitari.
+- L'aggiornamento elimina soltanto le righe legacy con ID tecnici `patient-demo`, `med-demo`, `dose-demo` e `stock-demo`.
+- Aggiunta una prova strumentale che impedisce la ricomparsa dei dati demo.
+
 ## 0.1.0-alpha
 
 - APK Android 10+ installabile, firmato con certificato debug per il collaudo iniziale.

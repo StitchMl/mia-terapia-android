@@ -19,16 +19,10 @@ data class TherapySnapshot(val patients: List<PatientEntity> = emptyList(), val 
 class TherapyRepository(private val context: Context, private val db: AppDatabase) {
     private val dao = db.therapyDao()
     val snapshot = combine(dao.patients(), dao.medications(), dao.doses(), dao.stockMovements(), dao.refillRequests()) { p, m, d, s, r -> TherapySnapshot(p, m, d, s, r) }
-    suspend fun seedIfEmpty() = db.withTransaction {
-        val patient = PatientEntity(id = "patient-demo", alias = "Matteo", type = PatientType.HUMAN)
-        val medication = MedicationEntity(id = "med-demo", patientId = patient.id, name = "Farmaco dimostrativo", form = "Compressa", strength = "10 mg")
-        val at = LocalDate.now().atTime(LocalTime.of(20, 0)).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        dao.insertPatients(listOf(patient))
-        if (DeviceSettings(context).assignedPatients().isEmpty()) DeviceSettings(context).setAlarmAssigned(patient.id, true)
-        dao.insertMedications(listOf(medication))
-        dao.insertDoses(listOf(DoseOccurrenceEntity(id = "dose-demo", patientId = patient.id, medicationId = medication.id, scheduledAtEpochMillis = at, doseAmount = "1", doseUnit = StockUnit.TABLET)))
-        if (DeviceSettings(context).isAlarmAssigned(patient.id) && at > System.currentTimeMillis()) AlarmScheduler(context).schedule("dose-demo", at)
-        dao.insertMovement(StockMovementEntity(id = "stock-demo", medicationId = medication.id, causeOccurrenceId = null, amountDecimal = "30", unit = StockUnit.TABLET, type = MovementType.INITIAL))
+    suspend fun removeLegacyDemoData() = db.withTransaction {
+        AlarmScheduler(context).cancel("dose-demo")
+        dao.deleteLegacyDemoData()
+        DeviceSettings(context).setAlarmAssigned("patient-demo", false)
     }
     suspend fun confirmDose(id: String) = dao.confirmDose(id, System.currentTimeMillis())
     suspend fun changeDoseStatus(id: String, status: DoseStatus) = dao.changeDoseStatus(id, status, System.currentTimeMillis())

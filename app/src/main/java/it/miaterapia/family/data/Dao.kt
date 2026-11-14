@@ -30,11 +30,28 @@ interface TherapyDao {
     @Insert(onConflict = OnConflictStrategy.ABORT) suspend fun insertRefillRequest(item: RefillRequestEntity)
     @Update suspend fun updateDose(item: DoseOccurrenceEntity)
     @Query("SELECT COUNT(*) FROM medications WHERE patientId = :patientId AND active = 1") suspend fun activeMedicationCount(patientId: String): Int
+    @Query("SELECT COUNT(*) FROM patients WHERE id = :id") suspend fun patientCount(id: String): Int
+    @Query("SELECT COUNT(*) FROM medications WHERE id = :id") suspend fun medicationCount(id: String): Int
     @Query("UPDATE medications SET active = 0 WHERE id = :id") suspend fun archiveMedication(id: String)
     @Query("SELECT * FROM sync_outbox WHERE status IN ('PENDING','FAILED') AND nextAttemptAtEpochMillis <= :now ORDER BY nextAttemptAtEpochMillis LIMIT :limit") suspend fun pendingOutbox(now: Long, limit: Int = 20): List<SyncOutboxEntity>
     @Query("UPDATE sync_outbox SET status = :status, attempts = attempts + :attemptIncrement, nextAttemptAtEpochMillis = :nextAttempt, lastError = :error WHERE id = :id") suspend fun updateOutbox(id: String, status: OutboxStatus, attemptIncrement: Int, nextAttempt: Long, error: String?)
     @Query("SELECT COUNT(*) FROM stock_movements WHERE causeOccurrenceId = :occurrenceId AND type = :type") suspend fun movementCount(occurrenceId: String, type: MovementType): Int
     @Query("UPDATE refill_requests SET status = :status, fulfilledAtEpochMillis = :fulfilledAt WHERE id = :id") suspend fun updateRequestStatus(id: String, status: RequestStatus, fulfilledAt: Long?)
+
+    @Query("DELETE FROM stock_movements WHERE medicationId = 'med-demo'") suspend fun deleteLegacyDemoMovements()
+    @Query("DELETE FROM dose_events WHERE occurrenceId = 'dose-demo'") suspend fun deleteLegacyDemoEvents()
+    @Query("DELETE FROM dose_occurrences WHERE id = 'dose-demo'") suspend fun deleteLegacyDemoDose()
+    @Query("DELETE FROM medications WHERE id = 'med-demo'") suspend fun deleteLegacyDemoMedication()
+    @Query("DELETE FROM patients WHERE id = 'patient-demo'") suspend fun deleteLegacyDemoPatient()
+
+    @Transaction
+    suspend fun deleteLegacyDemoData() {
+        deleteLegacyDemoMovements()
+        deleteLegacyDemoEvents()
+        deleteLegacyDemoDose()
+        deleteLegacyDemoMedication()
+        deleteLegacyDemoPatient()
+    }
 
     @Transaction
     suspend fun confirmDose(id: String, confirmedAt: Long): Boolean {

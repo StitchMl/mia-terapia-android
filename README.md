@@ -4,7 +4,7 @@ Applicazione Android per terapie familiari: profili persona/animale, promemoria,
 
 ## Stato
 
-Prima alpha pubblica `0.1.0`. Il client OAuth Android debug è configurato per `it.miaterapia.family`. L’app chiede solo `drive.file` e carica payload AES-256-GCM `.enc`.
+Alpha pubblica `0.1.1`. Le build distribuite partono vuote e non contengono profili, farmaci, dosi o scorte dimostrative. Il client OAuth Android debug è configurato per `it.miaterapia.family`. L’app chiede solo `drive.file` e carica payload AES-256-GCM `.enc`.
 
 L'APK alpha è destinato a prove controllate. Non sostituisce indicazioni mediche e non va usato come unica fonte per terapie urgenti.
 

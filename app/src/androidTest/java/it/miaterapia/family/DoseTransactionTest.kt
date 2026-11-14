@@ -27,4 +27,22 @@ class DoseTransactionTest {
         assertEquals(1, dao.movementCount(dose.id, MovementType.REVERSAL))
         assertEquals(DoseStatus.UNCONFIRMED, dao.dose(dose.id)?.status)
     }
+
+    @Test fun publishedBuildRemovesLegacyDemoRows() = runBlocking {
+        val app = ApplicationProvider.getApplicationContext<MiaTerapiaApplication>()
+        val dao = app.database.therapyDao()
+        val patient = PatientEntity("patient-demo", "Demo", PatientType.HUMAN)
+        val medication = MedicationEntity("med-demo", patient.id, "Demo", "Compressa", null)
+        val dose = DoseOccurrenceEntity("dose-demo", patient.id, medication.id, System.currentTimeMillis(), doseAmount = "1", doseUnit = StockUnit.TABLET)
+        dao.insertPatients(listOf(patient))
+        dao.insertMedications(listOf(medication))
+        dao.insertDoses(listOf(dose))
+        dao.insertMovement(StockMovementEntity("stock-demo", medication.id, null, "30", StockUnit.TABLET, MovementType.INITIAL))
+
+        dao.deleteLegacyDemoData()
+
+        assertEquals(0, dao.patientCount(patient.id))
+        assertEquals(0, dao.medicationCount(medication.id))
+        assertNull(dao.dose(dose.id))
+    }
 }

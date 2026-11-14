@@ -21,7 +21,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val snapshot = repository.snapshot.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TherapySnapshot())
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val messages = _messages.asSharedFlow()
-    init { viewModelScope.launch { repository.seedIfEmpty() } }
+    init { viewModelScope.launch { repository.removeLegacyDemoData() } }
     fun confirm(id: String) { viewModelScope.launch { if (repository.confirmDose(id)) AlarmScheduler(getApplication()).cancel(id) } }
     fun addPatient(alias: String, type: PatientType) = runAction { repository.addPatient(alias, type) }
     fun addMedication(patientId: String, name: String, form: String, strength: String?, amount: String, unit: StockUnit, times: List<String>) = runAction { repository.addMedication(patientId, name, form, strength, amount, unit, times.map(LocalTime::parse)) }
