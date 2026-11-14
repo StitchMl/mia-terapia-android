@@ -4,7 +4,7 @@ Applicazione Android per terapie familiari: profili persona/animale, promemoria,
 
 ## Stato
 
-Alpha pubblica `0.1.1`. Le build distribuite partono vuote e non contengono profili, farmaci, dosi o scorte dimostrative. Il client OAuth Android debug è configurato per `it.miaterapia.family`. L’app chiede solo `drive.file` e carica payload AES-256-GCM `.enc`.
+Alpha pubblica `0.1.2`. Le build distribuite partono vuote e non contengono profili, farmaci, dosi o scorte dimostrative. Il client OAuth Android debug è configurato per `it.miaterapia.family`. L’app chiede solo `drive.file` e carica payload AES-256-GCM `.enc`.
 
 L'APK alpha è destinato a prove controllate. Non sostituisce indicazioni mediche e non va usato come unica fonte per terapie urgenti.
 
@@ -25,7 +25,7 @@ L'APK alpha è destinato a prove controllate. Non sostituisce indicazioni medich
 
 APK debug: `app/build/outputs/apk/debug/app-debug.apk`.
 
-Documenti tecnici: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md), [`docs/SYNC_PROTOCOL.md`](docs/SYNC_PROTOCOL.md), [`docs/SECURITY.md`](docs/SECURITY.md), [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md), [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md), [`docs/DECISIONS.md`](docs/DECISIONS.md), [`docs/RELEASE.md`](docs/RELEASE.md).
+Documenti tecnici: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md), [`docs/SYNC_PROTOCOL.md`](docs/SYNC_PROTOCOL.md), [`docs/SECURITY.md`](docs/SECURITY.md), [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md), [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md), [`docs/RELEASE.md`](docs/RELEASE.md).
 
 ## Qualità
 

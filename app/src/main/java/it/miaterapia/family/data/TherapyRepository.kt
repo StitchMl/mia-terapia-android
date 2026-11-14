@@ -16,9 +16,11 @@ import it.miaterapia.family.domain.ScheduleRule
 
 data class TherapySnapshot(val patients: List<PatientEntity> = emptyList(), val medications: List<MedicationEntity> = emptyList(), val doses: List<DoseOccurrenceEntity> = emptyList(), val movements: List<StockMovementEntity> = emptyList(), val requests: List<RefillRequestEntity> = emptyList())
 
+/** Punto di ingresso applicativo: coordina transazioni Room, regole e allarmi locali. */
 class TherapyRepository(private val context: Context, private val db: AppDatabase) {
     private val dao = db.therapyDao()
     val snapshot = combine(dao.patients(), dao.medications(), dao.doses(), dao.stockMovements(), dao.refillRequests()) { p, m, d, s, r -> TherapySnapshot(p, m, d, s, r) }
+    /** Bonifica una tantum delle sole chiavi tecniche usate dalla prima alpha. */
     suspend fun removeLegacyDemoData() = db.withTransaction {
         AlarmScheduler(context).cancel("dose-demo")
         dao.deleteLegacyDemoData()
@@ -46,6 +48,8 @@ class TherapyRepository(private val context: Context, private val db: AppDatabas
         dao.insertMedication(medication)
         dao.insertPlan(plan)
         dao.insertPhase(phase)
+        // Materializziamo 14 giorni: abbastanza per gli allarmi, senza far crescere
+        // indefinitamente il database. Una rigenerazione mantiene gli stessi ID.
         ScheduleEngine.generate(ScheduleRule(today, null, times, zoneId = zone, doseAmount = decimal, doseUnit = unit, scheduleId = phase.id), today, 14).forEach { planned ->
             val scheduled = planned.scheduledAt.toInstant().toEpochMilli()
             val occurrence = DoseOccurrenceEntity(id = planned.occurrenceId, patientId = patientId, medicationId = medication.id, scheduledAtEpochMillis = scheduled, doseAmount = decimal.toPlainString(), doseUnit = unit)

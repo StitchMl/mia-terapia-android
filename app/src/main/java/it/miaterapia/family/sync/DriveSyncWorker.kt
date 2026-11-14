@@ -19,6 +19,10 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
+/**
+ * Svuota l'outbox cifrata quando la rete torna disponibile.
+ * Il lavoro è unico per evitare worker concorrenti; i fallimenti usano backoff esponenziale.
+ */
 class DriveSyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val dao = (applicationContext as MiaTerapiaApplication).database.therapyDao()
@@ -42,6 +46,7 @@ class DriveSyncWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 dao.updateOutbox(row.id, OutboxStatus.SENT, 0, 0, null)
             }.onFailure {
                 failed = true
+                // 1, 2, 4… minuti, con tetto a 60 per non martellare Drive.
                 val delayMinutes = (1L shl row.attempts.coerceAtMost(6)).coerceAtMost(60)
                 dao.updateOutbox(row.id, OutboxStatus.FAILED, 1, System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(delayMinutes), it.message?.take(300))
             }

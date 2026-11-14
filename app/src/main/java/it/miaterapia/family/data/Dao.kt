@@ -57,6 +57,8 @@ interface TherapyDao {
     suspend fun confirmDose(id: String, confirmedAt: Long): Boolean {
         val current = dose(id) ?: return false
         if (current.status == DoseStatus.TAKEN) return false
+        // L'indice univoco (occurrenceId, TAKE) rende la conferma idempotente
+        // anche con doppio tap o due dispositivi che convergono sullo stesso evento.
         val inserted = insertMovement(StockMovementEntity(
             medicationId = current.medicationId,
             causeOccurrenceId = current.id,

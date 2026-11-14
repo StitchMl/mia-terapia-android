@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 
+/** Adattatore di [AlarmManager] che non promette puntualità quando manca il permesso esatto. */
 class AlarmScheduler(private val context: Context) {
     private val manager = context.getSystemService(AlarmManager::class.java)
     fun canScheduleExact() = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || manager.canScheduleExactAlarms()
@@ -15,5 +16,7 @@ class AlarmScheduler(private val context: Context) {
         return true
     }
     fun cancel(occurrenceId: String) = manager.cancel(pending(occurrenceId))
+    // Lo stesso occurrenceId produce lo stesso PendingIntent: conferma e rettifica
+    // cancellano esclusivamente la dose interessata.
     private fun pending(id: String) = PendingIntent.getBroadcast(context, id.hashCode(), Intent(context, DoseAlarmReceiver::class.java).putExtra("occurrenceId", id), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 }

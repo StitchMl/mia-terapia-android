@@ -1,11 +1,12 @@
 # Rilascio
 
-## 0.1.1-alpha
+## 0.1.2-alpha
 
 - Rimossi tutti i seed e i testi dimostrativi dalle build pubblicate.
 - Le nuove installazioni partono senza profili o dati sanitari.
 - L'aggiornamento elimina soltanto le righe legacy con ID tecnici `patient-demo`, `med-demo`, `dose-demo` e `stock-demo`.
 - Aggiunta una prova strumentale che impedisce la ricomparsa dei dati demo.
+- Aggiunti KDoc e commenti sulle invarianti di dominio, sicurezza, sync e allarmi.
 
 ## 0.1.0-alpha
 
@@ -23,4 +24,4 @@
 6. Produrre AAB/APK release; verificare firma, installazione pulita e aggiornamento dalla versione precedente.
 7. Pubblicare tag e note di rilascio con hash SHA-256 dell’artefatto.
 
-Nessun rilascio pubblico finché T22 e T24 non risultano eseguiti con successo.
+Le versioni alpha sono destinate al collaudo. Una versione stabile richiede firma release permanente e completamento delle prove multi-account/multi-dispositivo indicate in `TEST_RESULTS.md`.

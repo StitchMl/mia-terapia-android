@@ -14,6 +14,7 @@ data class SyncEvent(
 
 data class MergeResult(val accepted: List<SyncEvent>, val rejectedDuplicates: Int, val conflicts: Set<String>)
 
+/** Merge deterministico e append-only degli eventi provenienti da più dispositivi. */
 object SyncProtocol {
     fun merge(local: Collection<SyncEvent>, remote: Collection<SyncEvent>): MergeResult {
         val byId = linkedMapOf<String, SyncEvent>()
@@ -21,6 +22,7 @@ object SyncProtocol {
         (local + remote).sortedWith(compareBy<SyncEvent> { it.occurredAtEpochMillis }.thenBy { it.eventId }).forEach { event ->
             if (byId.putIfAbsent(event.eventId, event) != null) duplicates++
         }
+        // Due esiti terminali diversi richiedono una scelta esplicita: nessun last-write-wins.
         val terminal = setOf(EventType.TAKEN, EventType.SKIPPED)
         val conflicts = byId.values.groupBy { it.occurrenceId }.filterValues { events ->
             events.filter { it.type in terminal && it.supersedesEventId == null }.map { it.type }.distinct().size > 1

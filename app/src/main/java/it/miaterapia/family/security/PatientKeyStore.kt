@@ -10,6 +10,10 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
+/**
+ * Custodisce le chiavi paziente avvolte da una chiave non esportabile di Android Keystore.
+ * SharedPreferences contiene solo nonce e testo cifrato, mai la chiave in chiaro.
+ */
 class PatientKeyStore(context: Context) {
     private val preferences = context.getSharedPreferences("patient_keys_v1", Context.MODE_PRIVATE)
     private val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
@@ -32,6 +36,7 @@ class PatientKeyStore(context: Context) {
     @Synchronized
     fun delete(patientId: String) { preferences.edit().remove(patientId).apply() }
 
+    /** Recupera la chiave hardware-backed, creandola solo al primo utilizzo. */
     private fun masterKey(): SecretKey {
         (keyStore.getKey(MASTER_ALIAS, null) as? SecretKey)?.let { return it }
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").apply {

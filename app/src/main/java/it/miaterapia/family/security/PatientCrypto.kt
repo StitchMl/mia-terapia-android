@@ -12,6 +12,13 @@ import javax.crypto.spec.SecretKeySpec
 data class EncryptedEnvelope(val version: Int = 1, val nonce: String, val ciphertext: String)
 data class RecoveryPackage(val version: Int = 1, val salt: String, val nonce: String, val wrappedKey: String, val iterations: Int)
 
+/**
+ * Cifratura applicativa per paziente.
+ *
+ * Il patientId è AAD: un payload spostato nella cartella di un altro paziente
+ * non supera l'autenticazione GCM. Le chiavi di recupero derivano da PBKDF2 e
+ * vengono azzerate appena terminato l'uso.
+ */
 object PatientCrypto {
     private const val KEY_BYTES = 32
     private const val NONCE_BYTES = 12
@@ -26,6 +33,7 @@ object PatientCrypto {
         val nonce = ByteArray(NONCE_BYTES).also(random::nextBytes)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(TAG_BITS, nonce))
+        // Lega crittograficamente il payload alla sua identità logica.
         cipher.updateAAD(patientId.toByteArray(Charsets.UTF_8))
         return EncryptedEnvelope(nonce = nonce.b64(), ciphertext = cipher.doFinal(plaintext).b64())
     }
@@ -44,7 +52,7 @@ object PatientCrypto {
         val salt = ByteArray(16).also(random::nextBytes)
         val wrappingKey = derive(recoveryCode, salt, RECOVERY_ITERATIONS)
         val envelope = encrypt(patientId, key, wrappingKey)
-        wrappingKey.fill(0)
+        wrappingKey.fill(0) // Riduce la permanenza della chiave derivata in memoria.
         return RecoveryPackage(salt = salt.b64(), nonce = envelope.nonce, wrappedKey = envelope.ciphertext, iterations = RECOVERY_ITERATIONS)
     }
 

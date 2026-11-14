@@ -1,7 +1,8 @@
 # Risultati test
 
-Data: 12 novembre 2026  
-Commit base: `a5c7d31`  
+Aggiornato: 14 novembre 2026
+
+Versione verificata: `0.1.2-alpha`
 Dispositivo: Samsung SM-S942B, Android 17, seriale `R3GL603F40X`
 
 ## Automatizzati JVM
@@ -17,11 +18,13 @@ Copertura diretta JVM: T01–T05, T14, T18, isolamento crittografico e invariant
 
 ## Strumentali Android
 
-5 test, 0 errori, eseguiti tramite `connectedDebugAndroidTest`:
+5 test, 0 errori nell'ultima esecuzione completa tramite `connectedDebugAndroidTest`:
 
 - navigazione e presenza aree richieste: 2
 - persistenza/importazione chiave tramite Android Keystore: 2
 - T06 e T07 su transazione Room: 1
+
+La nuova prova anti-seed è compilata ma attende una nuova esecuzione fisica: il Samsung non era collegato il 14 novembre 2026. Build, test JVM e lint risultano verdi.
 
 ## Installazione
 
