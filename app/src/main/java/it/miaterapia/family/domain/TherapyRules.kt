@@ -62,7 +62,7 @@ object ScheduleEngine {
         return results
     }
 
-    private fun stableOccurrenceId(scheduleId: String, date: LocalDate, time: LocalTime, zone: ZoneId): String =
+    fun stableOccurrenceId(scheduleId: String, date: LocalDate, time: LocalTime, zone: ZoneId): String =
         UUID.nameUUIDFromBytes("$scheduleId|$date|$time|${zone.id}".toByteArray()).toString()
 }
 
@@ -97,7 +97,7 @@ class DoseStateMachine(initial: DoseStatus = DoseStatus.PLANNED) {
     fun taken() = transition(setOf(DoseStatus.PLANNED, DoseStatus.NOTIFIED, DoseStatus.SNOOZED), DoseStatus.TAKEN)
     fun skipped() = transition(setOf(DoseStatus.PLANNED, DoseStatus.NOTIFIED, DoseStatus.SNOOZED), DoseStatus.SKIPPED)
     fun unconfirmed() = transition(setOf(DoseStatus.PLANNED, DoseStatus.NOTIFIED, DoseStatus.SNOOZED), DoseStatus.UNCONFIRMED)
-    fun cancelled() = transition(setOf(DoseStatus.PLANNED), DoseStatus.CANCELLED)
+    fun cancelled() = transition(setOf(DoseStatus.PLANNED, DoseStatus.NOTIFIED, DoseStatus.SNOOZED), DoseStatus.CANCELLED)
 
     private fun transition(allowed: Set<DoseStatus>, target: DoseStatus) {
         check(state in allowed) { "Transizione non valida: $state -> $target" }

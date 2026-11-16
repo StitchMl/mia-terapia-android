@@ -6,19 +6,16 @@ import it.miaterapia.family.MiaTerapiaApplication
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import it.miaterapia.family.settings.DeviceSettings
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action !in SUPPORTED_ACTIONS) return
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
-            val now = System.currentTimeMillis()
-            val repository = (context.applicationContext as MiaTerapiaApplication).repository
-            val settings = DeviceSettings(context)
-            repository.upcomingDoses(now, now + 31L * 24 * 60 * 60_000).filter { settings.isAlarmAssigned(it.patientId) }.forEach {
-                AlarmScheduler(context).schedule(it.id, it.scheduledAtEpochMillis)
+            try {
+                (context.applicationContext as MiaTerapiaApplication).repository.restoreAlarms()
+            } finally {
+                pending.finish()
             }
-            pending.finish()
         }
     }
 

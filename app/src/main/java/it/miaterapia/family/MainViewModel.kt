@@ -35,10 +35,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setAlarmAssignment(patientId: String, assigned: Boolean) {
         DeviceSettings(getApplication()).setAlarmAssigned(patientId, assigned)
         viewModelScope.launch {
-            val now = System.currentTimeMillis()
-            repository.upcomingDoses(now, now + 31L * 24 * 60 * 60_000).filter { it.patientId == patientId }.forEach {
-                if (assigned) AlarmScheduler(getApplication()).schedule(it.id, it.scheduledAtEpochMillis) else AlarmScheduler(getApplication()).cancel(it.id)
-            }
+            repository.restoreAlarms(patientId)
         }
     }
     private fun runAction(action: suspend () -> Unit) = viewModelScope.launch {

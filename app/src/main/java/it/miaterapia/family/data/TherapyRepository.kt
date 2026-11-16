@@ -2,6 +2,8 @@ package it.miaterapia.family.data
 
 import androidx.room.withTransaction
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -9,17 +11,26 @@ import java.math.BigDecimal
 import java.util.UUID
 import it.miaterapia.family.domain.TherapyLimits
 import android.content.Context
-import it.miaterapia.family.notifications.AlarmScheduler
+import it.miaterapia.family.notifications.AndroidReminderDelivery
+import it.miaterapia.family.notifications.ReminderDelivery
+import it.miaterapia.family.notifications.ReminderIdentity
+import it.miaterapia.family.domain.ReminderEligibility
 import it.miaterapia.family.settings.DeviceSettings
 import it.miaterapia.family.domain.ScheduleEngine
 import it.miaterapia.family.domain.ScheduleRule
 
 data class TherapySnapshot(val patients: List<PatientEntity> = emptyList(), val medications: List<MedicationEntity> = emptyList(), val doses: List<DoseOccurrenceEntity> = emptyList(), val movements: List<StockMovementEntity> = emptyList(), val requests: List<RefillRequestEntity> = emptyList())
 
-class TherapyRepository(private val context: Context, private val db: AppDatabase) {
+class TherapyRepository(private val context: Context, private val db: AppDatabase,
+    private val reminders: ReminderDelivery = AndroidReminderDelivery(context)) {
     private val dao = db.therapyDao()
     val snapshot = combine(dao.patients(), dao.medications(), dao.doses(), dao.stockMovements(), dao.refillRequests()) { p, m, d, s, r -> TherapySnapshot(p, m, d, s, r) }
-    suspend fun seedIfEmpty() = db.withTransaction {
+    suspend fun seedIfEmpty() {
+        seedDemoIfEmpty()
+        clearReminders(dao.archivedOccurrenceIds())
+    }
+
+    private suspend fun seedDemoIfEmpty() = db.withTransaction {
         val patient = PatientEntity(id = "patient-demo", alias = "Matteo", type = PatientType.HUMAN)
         val medication = MedicationEntity(id = "med-demo", patientId = patient.id, name = "Farmaco dimostrativo", form = "Compressa", strength = "10 mg")
         val at = LocalDate.now().atTime(LocalTime.of(20, 0)).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
@@ -27,12 +38,17 @@ class TherapyRepository(private val context: Context, private val db: AppDatabas
         if (DeviceSettings(context).assignedPatients().isEmpty()) DeviceSettings(context).setAlarmAssigned(patient.id, true)
         dao.insertMedications(listOf(medication))
         dao.insertDoses(listOf(DoseOccurrenceEntity(id = "dose-demo", patientId = patient.id, medicationId = medication.id, scheduledAtEpochMillis = at, doseAmount = "1", doseUnit = StockUnit.TABLET)))
-        if (DeviceSettings(context).isAlarmAssigned(patient.id) && at > System.currentTimeMillis()) AlarmScheduler(context).schedule("dose-demo", at)
+        if (dao.medication(medication.id)?.active == true) {
+            dao.insertPlans(listOf(TreatmentPlanEntity(id = "plan-demo", patientId = patient.id,
+                medicationId = medication.id, startDate = "1970-01-01", endDate = null, zoneId = ZoneId.systemDefault().id)))
+            dao.insertPhases(listOf(SchedulePhaseEntity(id = "phase-demo", planId = "plan-demo",
+                startDate = "1970-01-01", endDate = null, timesCsv = "20:00", doseAmount = "1", doseUnit = StockUnit.TABLET)))
+            dao.dose("dose-demo")?.let { if (it.scheduledAtEpochMillis > System.currentTimeMillis() && canDeliver(it)) reminders.schedule(it.id, it.scheduledAtEpochMillis) }
+        }
         dao.insertMovement(StockMovementEntity(id = "stock-demo", medicationId = medication.id, causeOccurrenceId = null, amountDecimal = "30", unit = StockUnit.TABLET, type = MovementType.INITIAL))
     }
     suspend fun confirmDose(id: String) = dao.confirmDose(id, System.currentTimeMillis())
     suspend fun changeDoseStatus(id: String, status: DoseStatus) = dao.changeDoseStatus(id, status, System.currentTimeMillis())
-    suspend fun upcomingDoses(from: Long, until: Long) = dao.upcomingDoses(from, until)
     suspend fun addPatient(alias: String, type: PatientType) {
         require(alias.isNotBlank()) { "Inserisci il nome del profilo" }
         dao.insertPatient(PatientEntity(alias = alias.trim(), type = type))
@@ -56,7 +72,7 @@ class TherapyRepository(private val context: Context, private val db: AppDatabas
             val scheduled = planned.scheduledAt.toInstant().toEpochMilli()
             val occurrence = DoseOccurrenceEntity(id = planned.occurrenceId, patientId = patientId, medicationId = medication.id, scheduledAtEpochMillis = scheduled, doseAmount = decimal.toPlainString(), doseUnit = unit)
             dao.insertDose(occurrence)
-            if (DeviceSettings(context).isAlarmAssigned(patientId) && scheduled > System.currentTimeMillis()) AlarmScheduler(context).schedule(occurrence.id, scheduled)
+            if (scheduled > System.currentTimeMillis() && canDeliver(occurrence)) reminders.schedule(occurrence.id, scheduled)
         }
     }
 
@@ -66,11 +82,89 @@ class TherapyRepository(private val context: Context, private val db: AppDatabas
         dao.insertMovement(StockMovementEntity(medicationId = medicationId, causeOccurrenceId = null, amountDecimal = decimal.toPlainString(), unit = unit, type = MovementType.REFILL))
     }
 
-    suspend fun archiveMedication(id: String) = dao.archiveMedication(id)
+    suspend fun archiveMedication(id: String) {
+        val ids = dao.archiveMedication(id, System.currentTimeMillis())
+        // Room e AlarmManager non condividono una transazione: prima rendere le
+        // dosi inoperative, poi pulire Android. Un broadcast gia' in coda sara' respinto.
+        clearReminders(ids)
+    }
+
+    private suspend fun clearReminders(ids: List<String>) {
+        if (ids.isEmpty()) return
+        val clearedIds = ids.toSet()
+        val otherIds = dao.allOccurrenceIds().filterNot { it in clearedIds }
+        withContext(Dispatchers.IO) {
+            ids.forEach { clearReminder(it, otherIds) }
+        }
+    }
+
+    private fun clearReminder(id: String, allIds: List<String>) = reminders.clear(id,
+        ReminderIdentity.safeLegacyCodes(id, allIds), ReminderIdentity.safeLegacyNotification(id, allIds))
+
+    private suspend fun canDeliver(dose: DoseOccurrenceEntity): Boolean = ReminderEligibility.canNotify(
+        dose, dao.medication(dose.medicationId), dao.plansForMedication(dose.medicationId),
+        dao.phasesForMedication(dose.medicationId), DeviceSettings(context).isAlarmAssigned(dose.patientId))
+
+    suspend fun restoreAlarms(patientId: String? = null) = db.withTransaction {
+        // Riprendere la pulizia se il processo si era interrotto dopo il commit Room.
+        clearReminders(dao.archivedOccurrenceIds())
+        val now = System.currentTimeMillis()
+        dao.upcomingDoses(now, now + 31L * 24 * 60 * 60_000).filter { patientId == null || it.patientId == patientId }.forEach { dose ->
+            // La verifica e la programmazione nella stessa transazione impediscono
+            // a una lista letta prima dell'archiviazione di ricreare sveglie obsolete.
+            if (canDeliver(dose)) reminders.schedule(dose.id, dose.scheduledAtEpochMillis)
+            else clearReminder(dose.id, dao.allOccurrenceIds())
+        }
+    }
+
+    suspend fun handleReminder(id: String, action: String = ReminderIdentity.ALARM): Boolean = db.withTransaction {
+        val dose = dao.dose(id) ?: return@withTransaction false
+        if (!canDeliver(dose)) return@withTransaction false
+        val now = System.currentTimeMillis()
+        if (action == ReminderIdentity.ALARM && dose.scheduledAtEpochMillis > now) return@withTransaction false
+        // Effetti sincroni dentro la transazione: se l'archiviazione segue questo
+        // broadcast, la sua pulizia rimuove anche la notifica o il rinvio appena creati.
+        when (action) {
+            ReminderIdentity.ALARM -> {
+                if (!dao.changeDoseStatus(id, DoseStatus.NOTIFIED, now)) return@withTransaction false
+                reminders.show(id)
+            }
+            "taken", "skip" -> {
+                val changed = if (action == "taken") dao.confirmDose(id, now)
+                    else dao.changeDoseStatus(id, DoseStatus.SKIPPED, now)
+                if (!changed) return@withTransaction false
+                clearReminder(id, dao.allOccurrenceIds())
+            }
+            "snooze5", "snooze15", "snooze30", "continue" -> {
+                if (dose.status != DoseStatus.NOTIFIED) return@withTransaction false
+                val preferences = context.getSharedPreferences("snooze", Context.MODE_PRIVATE)
+                val minutes = when (action) {
+                    "snooze5" -> 5
+                    "snooze30" -> 30
+                    "continue" -> preferences.getInt(id, 15).takeIf { it in setOf(5, 15, 30) } ?: 15
+                    else -> 15
+                }
+                if (!dao.changeDoseStatus(id, DoseStatus.SNOOZED, now)) return@withTransaction false
+                val snoozedUntil = now + minutes * 60_000L
+                // Persistenza dell'orario effettivo senza cambiare quello originale:
+                // il riavvio puo' ripristinare anche un rinvio della dose gia' scaduta.
+                dao.updateDose(dose.copy(status = DoseStatus.SNOOZED, scheduledAtEpochMillis = snoozedUntil))
+                preferences.edit().putInt(id, minutes).apply()
+                reminders.schedule(id, snoozedUntil)
+                reminders.hide(id)
+            }
+            else -> return@withTransaction false
+        }
+        true
+    }
     suspend fun reverseDose(id: String) = dao.reverseDose(id, System.currentTimeMillis())
     suspend fun recordAsNeeded(patientId: String, medicationId: String, amount: String, unit: StockUnit): Boolean = db.withTransaction {
         val decimal = amount.toBigDecimal()
         require(decimal > BigDecimal.ZERO) { "La quantità deve essere positiva" }
+        // Anche un'azione dell'interfaccia rimasta in coda deve rispettare l'archiviazione.
+        require(dao.medication(medicationId)?.let { it.active && it.patientId == patientId } == true) {
+            "Il farmaco non è attivo per questo profilo"
+        }
         val now = System.currentTimeMillis()
         val occurrence = DoseOccurrenceEntity(patientId = patientId, medicationId = medicationId, scheduledAtEpochMillis = now, doseAmount = decimal.toPlainString(), doseUnit = unit)
         dao.insertDose(occurrence)

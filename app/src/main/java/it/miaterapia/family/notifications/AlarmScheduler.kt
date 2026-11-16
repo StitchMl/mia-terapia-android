@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.net.Uri
 
 class AlarmScheduler(private val context: Context) {
     private val manager = context.getSystemService(AlarmManager::class.java)
@@ -14,6 +15,29 @@ class AlarmScheduler(private val context: Context) {
         manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pending(occurrenceId))
         return true
     }
-    fun cancel(occurrenceId: String) = manager.cancel(pending(occurrenceId))
-    private fun pending(id: String) = PendingIntent.getBroadcast(context, id.hashCode(), Intent(context, DoseAlarmReceiver::class.java).putExtra("occurrenceId", id), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+    fun cancel(occurrenceId: String, legacyRequestCodes: Set<Int> = emptySet()) {
+        (listOf(ReminderIdentity.ALARM) + ReminderIdentity.actions).forEach { action ->
+            PendingIntent.getBroadcast(context, 0, intent(context, occurrenceId, action),
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)?.let {
+                manager.cancel(it)
+                it.cancel()
+            }
+        }
+        legacyRequestCodes.forEach { code ->
+            PendingIntent.getBroadcast(context, code, Intent(context, DoseAlarmReceiver::class.java),
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE)?.let {
+                manager.cancel(it)
+                it.cancel()
+            }
+        }
+    }
+
+    private fun pending(id: String) = PendingIntent.getBroadcast(context, 0, intent(context, id), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+    companion object {
+        fun intent(context: Context, id: String, action: String = ReminderIdentity.ALARM) =
+            Intent(context, DoseAlarmReceiver::class.java)
+                .setData(Uri.parse(ReminderIdentity.uri(id, action)))
+                .putExtra("occurrenceId", id).putExtra("action", action)
+    }
 }
