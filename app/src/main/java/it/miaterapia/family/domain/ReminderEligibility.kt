@@ -37,10 +37,7 @@ object ReminderEligibility {
             // Una fase estranea malformata non deve invalidare la fase della dose.
             runCatching {
                 val expectedId = ScheduleEngine.stableOccurrenceId(phase.id, date, original.toLocalTime(), original.zone)
-                // Compatibilita' con la sola dose dimostrativa preesistente.
-                val legacyDemo = occurrence.id == "dose-demo" && occurrence.medicationId == "med-demo" &&
-                    plan.id == "plan-demo" && phase.id == "phase-demo"
-                (occurrence.id == expectedId || legacyDemo) &&
+                occurrence.id == expectedId &&
                     within(date, phase.startDate, phase.endDate) &&
                     (phase.daysMask and (1 shl (date.dayOfWeek.value - 1))) != 0 &&
                     phase.timesCsv.split(',').any { LocalTime.parse(it.trim()) == original.toLocalTime() } &&

@@ -2,6 +2,7 @@ package it.miaterapia.family
 
 import android.app.Activity
 import android.app.NotificationManager
+import android.app.Notification
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -68,6 +69,49 @@ class ReminderAndroidTest {
         } finally {
             legacy.cancel()
             preferences.edit().remove(id).commit()
+        }
+    }
+
+    @Test fun legacyHashCollisionPreservesTheOtherPendingIntent() {
+        val prefix = UUID.randomUUID().toString()
+        val archivedId = "$prefix-Aa"
+        val otherId = "$prefix-BB"
+        val legacyOther = PendingIntent.getBroadcast(context, otherId.hashCode(),
+            Intent(context, DoseAlarmReceiver::class.java).putExtra("occurrenceId", otherId), flags)
+        val newOther = pending(otherId)
+        try {
+            val codes = ReminderIdentity.safeLegacyCodes(archivedId, listOf(archivedId, otherId))
+            AndroidReminderDelivery(context).clear(archivedId, codes,
+                ReminderIdentity.safeLegacyNotification(archivedId, listOf(archivedId, otherId)))
+            assertEquals(legacyOther, PendingIntent.getBroadcast(context, otherId.hashCode(),
+                Intent(context, DoseAlarmReceiver::class.java), PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE))
+            assertEquals(newOther, PendingIntent.getBroadcast(context, 0, AlarmScheduler.intent(context, otherId),
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE))
+        } finally {
+            legacyOther.cancel()
+            newOther.cancel()
+        }
+    }
+
+    @Test fun legacyAndTaggedNotificationsAreRemovedTogether() {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        assumeTrue(manager.areNotificationsEnabled())
+        val id = "notification-${UUID.randomUUID()}"
+        NotificationHelper.createChannel(context)
+        try {
+            manager.notify(id.hashCode(), Notification.Builder(context, NotificationHelper.CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_app).setContentTitle("Promemoria precedente").build())
+            NotificationHelper.show(context, id)
+            eventually {
+                manager.activeNotifications.any { it.tag == id } &&
+                    manager.activeNotifications.any { it.tag == null && it.id == id.hashCode() }
+            }
+            AndroidReminderDelivery(context).clear(id, ReminderIdentity.safeLegacyCodes(id, listOf(id)), true)
+            eventually {
+                manager.activeNotifications.none { it.tag == id || (it.tag == null && it.id == id.hashCode()) }
+            }
+        } finally {
+            AndroidReminderDelivery(context).clear(id, emptySet(), true)
         }
     }
 

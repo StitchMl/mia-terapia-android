@@ -15,7 +15,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 abstract class AppDatabase : RoomDatabase() {
     abstract fun therapyDao(): TherapyDao
     companion object {
-        private val MIGRATION_1_2 = object : Migration(1, 2) {
+        // Visibile ai test di aggiornamento che usano la migrazione di produzione.
+        internal val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS `treatment_plans` (`id` TEXT NOT NULL, `patientId` TEXT NOT NULL, `medicationId` TEXT NOT NULL, `startDate` TEXT NOT NULL, `endDate` TEXT, `zoneId` TEXT NOT NULL, `active` INTEGER NOT NULL, `instructions` TEXT, PRIMARY KEY(`id`))")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_treatment_plans_patientId` ON `treatment_plans` (`patientId`)")

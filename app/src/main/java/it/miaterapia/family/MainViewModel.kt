@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import it.miaterapia.family.data.PatientType
 import it.miaterapia.family.data.StockUnit
+import it.miaterapia.family.data.LegacyDemoCleanupResult
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import it.miaterapia.family.settings.DeviceSettings
@@ -21,7 +22,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val snapshot = repository.snapshot.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TherapySnapshot())
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val messages = _messages.asSharedFlow()
-    init { viewModelScope.launch { repository.seedIfEmpty() } }
+    init {
+        runAction {
+            if (repository.initializeLocalData() == LegacyDemoCleanupResult.PRESERVED) {
+                _messages.emit("Alcuni dati precedenti sono stati conservati per proteggere terapie e storico.")
+            }
+        }
+    }
     fun confirm(id: String) { viewModelScope.launch { if (repository.confirmDose(id)) AlarmScheduler(getApplication()).cancel(id) } }
     fun addPatient(alias: String, type: PatientType) = runAction { repository.addPatient(alias, type) }
     fun addMedication(patientId: String, name: String, form: String, strength: String?, amount: String, unit: StockUnit, times: List<String>) = runAction { repository.addMedication(patientId, name, form, strength, amount, unit, times.map(LocalTime::parse)) }

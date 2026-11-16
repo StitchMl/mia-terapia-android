@@ -10,6 +10,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.UUID
 
+/** Regola immutabile usata per materializzare le singole assunzioni di una terapia. */
 data class ScheduleRule(
     val startDate: LocalDate,
     val endDate: LocalDate?,
@@ -39,6 +40,12 @@ data class PlannedOccurrence(
     val status: DoseStatus = DoseStatus.PLANNED
 )
 
+/**
+ * Genera occorrenze deterministiche in una finestra limitata.
+ *
+ * Gli ID derivano da piano, data, ora e fuso: rigenerare la stessa finestra non
+ * crea duplicati e due terapie con lo stesso orario restano isolate.
+ */
 object ScheduleEngine {
     fun generate(rule: ScheduleRule, windowStart: LocalDate, windowDays: Long = 14): List<PlannedOccurrence> {
         require(windowDays in 1..31) { "La finestra deve essere compresa tra 1 e 31 giorni" }
@@ -68,6 +75,7 @@ object ScheduleEngine {
 
 data class StockEntry(val amount: BigDecimal, val unit: StockUnit)
 
+/** Operazioni pure sulle scorte; [BigDecimal] evita errori sulle dosi frazionarie. */
 object InventoryRules {
     fun apply(balance: StockEntry, movement: StockEntry): StockEntry {
         require(balance.unit == movement.unit) { "Unità di scorta incompatibili" }
@@ -88,6 +96,7 @@ object TherapyLimits {
     fun canActivateMedication(activeCount: Int) = activeCount < MAX_ACTIVE_MEDICATIONS_PER_PATIENT
 }
 
+/** Impedisce transizioni clinicamente incoerenti, come confermare due volte una dose. */
 class DoseStateMachine(initial: DoseStatus = DoseStatus.PLANNED) {
     var state: DoseStatus = initial
         private set

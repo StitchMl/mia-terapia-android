@@ -4,9 +4,11 @@ Applicazione Android per terapie familiari: profili persona/animale, promemoria,
 
 ## Stato
 
-Prima alpha pubblica `0.1.0`. Il client OAuth Android debug è configurato per `it.miaterapia.family`. L’app chiede solo `drive.file` e carica payload AES-256-GCM `.enc`.
+Alpha pubblica `0.1.2`. Le build distribuite partono vuote e non contengono profili, farmaci, dosi o scorte dimostrative. Il client OAuth Android debug e' configurato per `it.miaterapia.family`. L'app chiede solo `drive.file` e carica payload AES-256-GCM `.enc`.
 
-L'APK alpha è destinato a prove controllate. Non sostituisce indicazioni mediche e non va usato come unica fonte per terapie urgenti.
+In aggiornamento la bonifica riconosce il solo campione originale inutilizzato; dati modificati, storico e riferimenti aggiuntivi vengono conservati. Nessun seed viene ricreato.
+
+L'APK alpha e' destinato a prove controllate. Non sostituisce indicazioni mediche e non va usato come unica fonte per terapie urgenti.
 
 ## Requisiti
 
@@ -25,9 +27,9 @@ L'APK alpha è destinato a prove controllate. Non sostituisce indicazioni medich
 
 APK debug: `app/build/outputs/apk/debug/app-debug.apk`.
 
-Documenti tecnici: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md), [`docs/SYNC_PROTOCOL.md`](docs/SYNC_PROTOCOL.md), [`docs/SECURITY.md`](docs/SECURITY.md), [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md), [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md), [`docs/DECISIONS.md`](docs/DECISIONS.md), [`docs/RELEASE.md`](docs/RELEASE.md).
+Documenti tecnici: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md), [`docs/SYNC_PROTOCOL.md`](docs/SYNC_PROTOCOL.md), [`docs/SECURITY.md`](docs/SECURITY.md), [`docs/TEST_PLAN.md`](docs/TEST_PLAN.md), [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md), [`docs/RELEASE.md`](docs/RELEASE.md).
 
-## Qualità
+## Qualita'
 
 GitHub Actions esegue build, test, Android Lint e copertura JaCoCo. SonarQube Cloud analizza ogni push tramite l'integrazione GitHub e applica il Quality Gate Sonar way.
 

@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Build
 import android.net.Uri
 
+/** Adattatore di [AlarmManager] che non promette puntualita' quando manca il permesso esatto. */
 class AlarmScheduler(private val context: Context) {
     private val manager = context.getSystemService(AlarmManager::class.java)
     fun canScheduleExact() = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || manager.canScheduleExactAlarms()
@@ -15,6 +16,8 @@ class AlarmScheduler(private val context: Context) {
         manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, pending(occurrenceId))
         return true
     }
+    // Dose e azione distinguono i nuovi PendingIntent; i codici precedenti sono
+    // cancellabili solo dopo aver escluso collisioni con altre dosi nel repository.
     fun cancel(occurrenceId: String, legacyRequestCodes: Set<Int> = emptySet()) {
         (listOf(ReminderIdentity.ALARM) + ReminderIdentity.actions).forEach { action ->
             PendingIntent.getBroadcast(context, 0, intent(context, occurrenceId, action),

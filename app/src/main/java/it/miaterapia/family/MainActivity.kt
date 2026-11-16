@@ -65,7 +65,7 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
     LaunchedEffect(vm) { vm.messages.collect { snackbar.showSnackbar(it) } }
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
-        topBar = { TopAppBar(title = { Column { Text("MiaTerapia"); Text("Dati dimostrativi", style = MaterialTheme.typography.labelMedium) } }) },
+        topBar = { TopAppBar(title = { Text("MiaTerapia") }) },
         bottomBar = { NavigationBar { Tab.entries.forEach { item -> NavigationBarItem(selected = tab == item, onClick = { tab = item }, icon = { Icon(when(item) { Tab.TODAY -> Icons.Outlined.Today; Tab.THERAPIES -> Icons.Outlined.Medication; Tab.STOCK -> Icons.Outlined.Inventory2; Tab.LOG -> Icons.Outlined.History; Tab.SETTINGS -> Icons.Outlined.Settings }, null) }, label = { Text(item.label) }) } } }
     ) { padding -> Box(Modifier.padding(padding).fillMaxSize()) { when(tab) { Tab.TODAY -> TodayScreen(snapshot, vm::confirm); Tab.THERAPIES -> TherapiesScreen(snapshot, vm::addMedication, vm::archiveMedication, vm::recordAsNeeded); Tab.STOCK -> StockScreen(snapshot, vm::addStock); Tab.LOG -> LogScreen(snapshot, vm::reverseDose); Tab.SETTINGS -> SettingsScreen(snapshot, vm::addPatient, vm::createRefillRequest, vm::markRequestFulfilled, vm::setRole, vm::setAlarmAssignment) } } }
 }

@@ -1,7 +1,8 @@
 # Risultati test
 
-Data: 12 novembre 2026  
-Commit base: `a5c7d31`  
+Aggiornato: 14 novembre 2026
+
+Versione verificata: `0.1.2-alpha`
 Dispositivo: Samsung SM-S942B, Android 17, seriale `R3GL603F40X`
 
 ## Automatizzati JVM
@@ -17,11 +18,13 @@ Copertura diretta JVM: T01–T05, T14, T18, isolamento crittografico e invariant
 
 ## Strumentali Android
 
-5 test, 0 errori, eseguiti tramite `connectedDebugAndroidTest`:
+5 test, 0 errori nell'ultima esecuzione completa tramite `connectedDebugAndroidTest`:
 
 - navigazione e presenza aree richieste: 2
 - persistenza/importazione chiave tramite Android Keystore: 2
 - T06 e T07 su transazione Room: 1
+
+La nuova prova anti-seed e' compilata ma attende una nuova esecuzione fisica: il Samsung non era collegato il 14 novembre 2026. Build, test JVM e lint risultano verdi.
 
 ## Installazione
 
@@ -42,3 +45,7 @@ Copertura diretta JVM: T01–T05, T14, T18, isolamento crittografico e invariant
 ## Prove ancora da completare
 
 T09–T13 e T15–T17 richiedono prove temporali, offline o su lockscreen. T20–T24 richiedono scenari di revoca, secondo account/dispositivo, timeout e corruzione. T25 richiede verifica visiva del PDF A4 di 31 giorni.
+
+## Integrazione PR #1 - 16 novembre 2026
+
+I risultati precedenti descrivono le esecuzioni storiche di main e non validano il codice integrato. Per questa integrazione Gradle non supera l'avvio per assenza di `JAVA_HOME` e di `java` nel PATH. Test JVM, test Android, compilazione e lint restano da eseguire. Sono disponibili nuove prove di bonifica conservativa e aggiornamento da schema 1 a 2; non sono dichiarate superate. Dettagli e verifiche statiche in `INTERVENTO_01_ARCHIVIAZIONE.md`.

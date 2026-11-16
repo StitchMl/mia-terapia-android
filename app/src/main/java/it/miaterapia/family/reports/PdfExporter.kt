@@ -13,6 +13,7 @@ import java.time.ZoneId
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
+/** Genera documenti A4 locali e li espone soltanto tramite URI temporanei FileProvider. */
 object PdfExporter {
     private val dateFormat = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
 
@@ -25,6 +26,7 @@ object PdfExporter {
             add("Profili: ${snapshot.patients.joinToString { it.alias }}")
             add("")
             val month = YearMonth.now()
+            // La specifica richiede due blocchi leggibili: giorni 1–15 e 16–fine mese.
             ReportLayout.dayRanges(month.lengthOfMonth()).forEachIndexed { index, range ->
                 if (index > 0) add(PAGE_BREAK)
                 add("Calendario ${month.month.name.lowercase()} ${month.year} · giorni ${range.first}–${range.last}")

@@ -8,7 +8,6 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 import java.math.BigDecimal
-import java.util.UUID
 import it.miaterapia.family.domain.TherapyLimits
 import android.content.Context
 import it.miaterapia.family.notifications.AndroidReminderDelivery
@@ -21,31 +20,32 @@ import it.miaterapia.family.domain.ScheduleRule
 
 data class TherapySnapshot(val patients: List<PatientEntity> = emptyList(), val medications: List<MedicationEntity> = emptyList(), val doses: List<DoseOccurrenceEntity> = emptyList(), val movements: List<StockMovementEntity> = emptyList(), val requests: List<RefillRequestEntity> = emptyList())
 
+/** Punto di ingresso applicativo: coordina transazioni Room, regole e allarmi locali. */
 class TherapyRepository(private val context: Context, private val db: AppDatabase,
     private val reminders: ReminderDelivery = AndroidReminderDelivery(context)) {
     private val dao = db.therapyDao()
     val snapshot = combine(dao.patients(), dao.medications(), dao.doses(), dao.stockMovements(), dao.refillRequests()) { p, m, d, s, r -> TherapySnapshot(p, m, d, s, r) }
-    suspend fun seedIfEmpty() {
-        seedDemoIfEmpty()
+
+    suspend fun initializeLocalData(): LegacyDemoCleanupResult {
+        val demoCleanup = removeLegacyDemoData()
+        cleanupArchivedReminders()
+        return demoCleanup
+    }
+
+    suspend fun cleanupArchivedReminders() = db.withTransaction {
         clearReminders(dao.archivedOccurrenceIds())
     }
 
-    private suspend fun seedDemoIfEmpty() = db.withTransaction {
-        val patient = PatientEntity(id = "patient-demo", alias = "Matteo", type = PatientType.HUMAN)
-        val medication = MedicationEntity(id = "med-demo", patientId = patient.id, name = "Farmaco dimostrativo", form = "Compressa", strength = "10 mg")
-        val at = LocalDate.now().atTime(LocalTime.of(20, 0)).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        dao.insertPatients(listOf(patient))
-        if (DeviceSettings(context).assignedPatients().isEmpty()) DeviceSettings(context).setAlarmAssigned(patient.id, true)
-        dao.insertMedications(listOf(medication))
-        dao.insertDoses(listOf(DoseOccurrenceEntity(id = "dose-demo", patientId = patient.id, medicationId = medication.id, scheduledAtEpochMillis = at, doseAmount = "1", doseUnit = StockUnit.TABLET)))
-        if (dao.medication(medication.id)?.active == true) {
-            dao.insertPlans(listOf(TreatmentPlanEntity(id = "plan-demo", patientId = patient.id,
-                medicationId = medication.id, startDate = "1970-01-01", endDate = null, zoneId = ZoneId.systemDefault().id)))
-            dao.insertPhases(listOf(SchedulePhaseEntity(id = "phase-demo", planId = "plan-demo",
-                startDate = "1970-01-01", endDate = null, timesCsv = "20:00", doseAmount = "1", doseUnit = StockUnit.TABLET)))
-            dao.dose("dose-demo")?.let { if (it.scheduledAtEpochMillis > System.currentTimeMillis() && canDeliver(it)) reminders.schedule(it.id, it.scheduledAtEpochMillis) }
+    /** Bonifica ripetibile del solo campione riconosciuto come mai utilizzato. */
+    suspend fun removeLegacyDemoData(): LegacyDemoCleanupResult = db.withTransaction {
+        val result = dao.deleteLegacyDemoData()
+        if (result != LegacyDemoCleanupResult.PRESERVED) {
+            // Eseguire anche senza righe demo: una precedente chiusura del processo
+            // potrebbe avere lasciato allarmi, azioni o notifiche in entrambi i formati.
+            clearReminders(listOf("dose-demo"))
+            DeviceSettings(context).setAlarmAssigned("patient-demo", false)
         }
-        dao.insertMovement(StockMovementEntity(id = "stock-demo", medicationId = medication.id, causeOccurrenceId = null, amountDecimal = "30", unit = StockUnit.TABLET, type = MovementType.INITIAL))
+        result
     }
     suspend fun confirmDose(id: String) = dao.confirmDose(id, System.currentTimeMillis())
     suspend fun changeDoseStatus(id: String, status: DoseStatus) = dao.changeDoseStatus(id, status, System.currentTimeMillis())
@@ -68,6 +68,8 @@ class TherapyRepository(private val context: Context, private val db: AppDatabas
         dao.insertMedication(medication)
         dao.insertPlan(plan)
         dao.insertPhase(phase)
+        // Materializziamo 14 giorni: abbastanza per gli allarmi, senza far crescere
+        // indefinitamente il database. Una rigenerazione mantiene gli stessi ID.
         ScheduleEngine.generate(ScheduleRule(today, null, times, zoneId = zone, doseAmount = decimal, doseUnit = unit, scheduleId = phase.id), today, 14).forEach { planned ->
             val scheduled = planned.scheduledAt.toInstant().toEpochMilli()
             val occurrence = DoseOccurrenceEntity(id = planned.occurrenceId, patientId = patientId, medicationId = medication.id, scheduledAtEpochMillis = scheduled, doseAmount = decimal.toPlainString(), doseUnit = unit)

@@ -262,15 +262,22 @@ class MedicationArchiveTest {
         }
     }
 
-    @Test fun restartingDemoInitializationDoesNotReactivateArchivedReminders() = runBlocking {
-        repository.seedIfEmpty()
-        repository.archiveMedication("med-demo")
+    @Test fun restartingInitializationRecoversArchivedCleanupWithoutCreatingDemoData() = runBlocking {
+        val med = medication("a")
+        val dose = occurrence(med)
+        repository.archiveMedication(med.id)
         val events = rows("dose_events")
-        repository.seedIfEmpty()
-        assertEquals(false, dao.medication("med-demo")?.active)
-        assertTrue(dao.plansForMedication("med-demo").all { !it.active })
-        assertEquals(DoseStatus.CANCELLED, dao.dose("dose-demo")?.status)
-        assertFalse("dose-demo" in delivery.alarms)
+        // Effetti rimasti nel sistema dopo un'ipotetica interruzione del processo.
+        delivery.alarms[dose.id] = dose.scheduledAtEpochMillis
+        delivery.shown += dose.id
+        assertEquals(LegacyDemoCleanupResult.ABSENT, repository.initializeLocalData())
+        assertEquals(false, dao.medication(med.id)?.active)
+        assertTrue(dao.plansForMedication(med.id).all { !it.active })
+        assertEquals(DoseStatus.CANCELLED, dao.dose(dose.id)?.status)
+        assertFalse(dose.id in delivery.alarms)
+        assertFalse(dose.id in delivery.shown)
+        assertEquals(0, dao.patientCount("patient-demo"))
+        assertEquals(0, dao.medicationCount("med-demo"))
         assertEquals(events, rows("dose_events"))
     }
 
