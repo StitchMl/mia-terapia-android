@@ -94,7 +94,17 @@ private enum class Tab(val label: String) { TODAY("Oggi"), THERAPIES("Terapie"),
 
 @Composable private fun TherapiesScreen(s: TherapySnapshot, add: (String, String, String, String?, String, StockUnit, List<String>) -> Unit, archive: (String) -> Unit, asNeeded: (String, String, String, StockUnit) -> Unit) {
     var editing by remember { mutableStateOf(false) }
-    Page { Heading("Terapie"); Text("Farmaci attivi per ogni profilo."); Button(onClick = { editing = true }, enabled = s.patients.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.Add, null); Spacer(Modifier.width(8.dp)); Text("Aggiungi terapia") }; Spacer(Modifier.height(8.dp)); s.medications.forEach { med -> OutlinedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(18.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Column { Text(med.name, style = MaterialTheme.typography.titleMedium); Text(listOfNotNull(med.form, med.strength).joinToString(" · ")) }; IconButton(onClick = { archive(med.id) }) { Icon(Icons.Outlined.Archive, "Archivia") } }; TextButton(onClick = { asNeeded(med.patientId, med.id, "1", StockUnit.TABLET) }) { Text("Registra assunzione al bisogno") } } }; Spacer(Modifier.height(10.dp)) } }
+    var medicationToArchive by remember { mutableStateOf<MedicationEntity?>(null) }
+    Page { Heading("Terapie"); Text("Farmaci attivi per ogni profilo."); Button(onClick = { editing = true }, enabled = s.patients.isNotEmpty(), modifier = Modifier.fillMaxWidth()) { Icon(Icons.Outlined.Add, null); Spacer(Modifier.width(8.dp)); Text("Aggiungi terapia") }; Spacer(Modifier.height(8.dp)); s.medications.forEach { med -> OutlinedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(18.dp)) { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) { Column { Text(med.name, style = MaterialTheme.typography.titleMedium); Text(listOfNotNull(med.form, med.strength).joinToString(" · ")) }; IconButton(onClick = { medicationToArchive = med }) { Icon(Icons.Outlined.Archive, "Archivia") } }; TextButton(onClick = { asNeeded(med.patientId, med.id, "1", StockUnit.TABLET) }) { Text("Registra assunzione al bisogno") } } }; Spacer(Modifier.height(10.dp)) } }
+    medicationToArchive?.let { medication ->
+        AlertDialog(
+            onDismissRequest = { medicationToArchive = null },
+            title = { Text("Archivia ${medication.name}?") },
+            text = { Text("Il farmaco verrà disattivato e i suoi promemoria e rinvii saranno annullati. Lo storico delle assunzioni rimarrà disponibile.") },
+            confirmButton = { TextButton(onClick = { archive(medication.id); medicationToArchive = null }) { Text("Archivia") } },
+            dismissButton = { TextButton(onClick = { medicationToArchive = null }) { Text("Annulla") } }
+        )
+    }
     if (editing) MedicationDialog(s.patients, onDismiss = { editing = false }) { patient, name, form, strength, amount, unit, times -> add(patient, name, form, strength, amount, unit, times); editing = false }
 }
 

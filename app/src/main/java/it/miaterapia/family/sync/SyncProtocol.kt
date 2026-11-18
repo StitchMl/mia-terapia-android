@@ -14,7 +14,7 @@ data class SyncEvent(
 
 data class MergeResult(val accepted: List<SyncEvent>, val rejectedDuplicates: Int, val conflicts: Set<String>)
 
-/** Merge deterministico e append-only degli eventi provenienti da più dispositivi. */
+/** Merge deterministico e append-only degli eventi provenienti da piu' dispositivi. */
 object SyncProtocol {
     fun merge(local: Collection<SyncEvent>, remote: Collection<SyncEvent>): MergeResult {
         val byId = linkedMapOf<String, SyncEvent>()

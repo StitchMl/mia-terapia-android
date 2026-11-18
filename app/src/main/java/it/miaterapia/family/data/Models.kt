@@ -9,6 +9,7 @@ import java.util.UUID
 
 enum class PatientType { HUMAN, ANIMAL }
 enum class DoseStatus { PLANNED, NOTIFIED, SNOOZED, TAKEN, SKIPPED, UNCONFIRMED, CANCELLED }
+fun DoseStatus.isOperational() = this in setOf(DoseStatus.PLANNED, DoseStatus.NOTIFIED, DoseStatus.SNOOZED)
 enum class StockUnit { TABLET, CAPSULE, MILLILITER, DROP, DOSE, PUFF, GRAM, MANUAL }
 enum class MovementType { INITIAL, REFILL, TAKE, MANUAL_ADJUST, REVERSAL, EXPIRED, DISCARDED }
 enum class EventType { PLANNED, NOTIFIED, SNOOZED, TAKEN, SKIPPED, UNCONFIRMED, CANCELLED, CORRECTION }

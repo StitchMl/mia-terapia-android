@@ -9,7 +9,7 @@ La sincronizzazione usa eventi append-only, coda outbox e Google Drive REST v3. 
 I confini principali:
 
 - UI: Compose, permessi e consenso esplicito.
-- Dominio: calendari, stati dose, quantità `BigDecimal`, merge eventi.
+- Dominio: calendari, stati dose, quantita' `BigDecimal`, merge eventi.
 - Dati: Room, transazioni e indici univoci.
 - Integrazioni: notifiche, PDF, cifratura e Drive.
 
@@ -22,3 +22,7 @@ I confini principali:
 - `drive.file`: accesso ai soli file creati o scelti tramite MiaTerapia.
 - Drive REST v3: sostituisce l'SDK Android Drive dismesso.
 - Chiave per paziente: condivisione e revoca restano isolate per profilo.
+
+## Inizializzazione e archiviazione
+
+L'avvio non crea dati dimostrativi. `initializeLocalData()` esegue la bonifica conservativa del campione legacy e poi recupera la pulizia dei promemoria dei farmaci archiviati, anche quando la bonifica conserva dati dubbi. Archiviazione e conferma usano transazioni Room; allarmi e notifiche vengono puliti con identificativi completi e controlli di collisione per i codici precedenti. Lo schema resta alla versione 2.

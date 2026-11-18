@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Svuota l'outbox cifrata quando la rete torna disponibile.
- * Il lavoro è unico per evitare worker concorrenti; i fallimenti usano backoff esponenziale.
+ * Il lavoro e' unico per evitare worker concorrenti; i fallimenti usano backoff esponenziale.
  */
 class DriveSyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {

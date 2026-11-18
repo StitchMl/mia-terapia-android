@@ -4,7 +4,7 @@
 
 - Rimossi tutti i seed e i testi dimostrativi dalle build pubblicate.
 - Le nuove installazioni partono senza profili o dati sanitari.
-- L'aggiornamento elimina soltanto le righe legacy con ID tecnici `patient-demo`, `med-demo`, `dose-demo` e `stock-demo`.
+- L'aggiornamento rimuove il campione legacy soltanto se i dati corrispondono a quelli originali e non mostrano utilizzi o riferimenti aggiuntivi. Riconosce anche `plan-demo` e `phase-demo`; storico e casi dubbi vengono conservati.
 - Aggiunta una prova strumentale che impedisce la ricomparsa dei dati demo.
 - Aggiunti KDoc e commenti sulle invarianti di dominio, sicurezza, sync e allarmi.
 
@@ -22,6 +22,6 @@
 4. Verificare OAuth, recupero chiave e revoca con due account.
 5. Generare un keystore fuori dal repository e configurare la firma tramite variabili locali.
 6. Produrre AAB/APK release; verificare firma, installazione pulita e aggiornamento dalla versione precedente.
-7. Pubblicare tag e note di rilascio con hash SHA-256 dell’artefatto.
+7. Pubblicare tag e note di rilascio con hash SHA-256 dell'artefatto.
 
 Le versioni alpha sono destinate al collaudo. Una versione stabile richiede firma release permanente e completamento delle prove multi-account/multi-dispositivo indicate in `TEST_RESULTS.md`.

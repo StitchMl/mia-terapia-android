@@ -15,7 +15,7 @@ data class RecoveryPackage(val version: Int = 1, val salt: String, val nonce: St
 /**
  * Cifratura applicativa per paziente.
  *
- * Il patientId è AAD: un payload spostato nella cartella di un altro paziente
+ * Il patientId e' AAD: un payload spostato nella cartella di un altro paziente
  * non supera l'autenticazione GCM. Le chiavi di recupero derivano da PBKDF2 e
  * vengono azzerate appena terminato l'uso.
  */
@@ -33,7 +33,7 @@ object PatientCrypto {
         val nonce = ByteArray(NONCE_BYTES).also(random::nextBytes)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), GCMParameterSpec(TAG_BITS, nonce))
-        // Lega crittograficamente il payload alla sua identità logica.
+        // Lega crittograficamente il payload alla sua identita' logica.
         cipher.updateAAD(patientId.toByteArray(Charsets.UTF_8))
         return EncryptedEnvelope(nonce = nonce.b64(), ciphertext = cipher.doFinal(plaintext).b64())
     }
