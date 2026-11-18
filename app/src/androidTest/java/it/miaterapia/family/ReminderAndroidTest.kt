@@ -7,15 +7,23 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import it.miaterapia.family.data.*
+import it.miaterapia.family.domain.ScheduleEngine
+import it.miaterapia.family.domain.ScheduleRule
 import it.miaterapia.family.notifications.*
+import it.miaterapia.family.settings.DeviceSettings
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.math.BigDecimal
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -169,6 +177,69 @@ class ReminderAndroidTest {
                 execSQL("DELETE FROM medications WHERE id = ?", arrayOf(medication.id))
                 execSQL("DELETE FROM patients WHERE id = ?", arrayOf(patient.id))
             }
+        }
+    }
+
+    @Test fun convergingSpringDosesKeepSeparateRemindersAndConfirmations() = runBlocking {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        assumeTrue(manager.areNotificationsEnabled())
+        val settings = DeviceSettings(context)
+        val patient = PatientEntity(alias = "Test DST", type = PatientType.HUMAN)
+        val medication = MedicationEntity(patientId = patient.id, name = "Test", form = "Compressa", strength = null)
+        val date = LocalDate.of(2026, 3, 29)
+        val zone = ZoneId.of("Europe/Rome")
+        val plan = TreatmentPlanEntity(patientId = patient.id, medicationId = medication.id,
+            startDate = date.toString(), endDate = date.toString(), zoneId = zone.id)
+        val phase = SchedulePhaseEntity(planId = plan.id, startDate = date.toString(),
+            endDate = date.toString(), timesCsv = "02:30,03:30", doseAmount = "1", doseUnit = StockUnit.TABLET)
+        val times = listOf(LocalTime.of(2, 30), LocalTime.of(3, 30))
+        val (first, second) = ScheduleEngine.generate(
+            ScheduleRule(date, date, times, zoneId = zone, doseAmount = BigDecimal.ONE,
+                doseUnit = phase.doseUnit, scheduleId = phase.id), date, windowDays = 1
+        ).map {
+            DoseOccurrenceEntity(it.occurrenceId, patient.id, medication.id,
+                it.scheduledAt.toInstant().toEpochMilli(), doseAmount = "1", doseUnit = phase.doseUnit)
+        }
+
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
+        val dao = db.therapyDao()
+        val repository = TherapyRepository(context, db)
+        NotificationHelper.createChannel(context)
+        try {
+            settings.setAlarmAssigned(patient.id, true)
+            dao.insertPatient(patient)
+            dao.insertMedication(medication)
+            dao.insertPlan(plan)
+            dao.insertPhase(phase)
+            dao.insertDose(first)
+            dao.insertDose(second)
+
+            assertEquals(first.scheduledAtEpochMillis, second.scheduledAtEpochMillis)
+            assertNotEquals(pending(first.id), pending(second.id))
+            assertNotEquals(pending(first.id, "taken"), pending(second.id, "taken"))
+            assertTrue(repository.handleReminder(first.id))
+            assertTrue(repository.handleReminder(second.id))
+            eventually { manager.activeNotifications.map { it.tag }.containsAll(listOf(first.id, second.id)) }
+
+            assertTrue(repository.handleReminder(first.id, "taken"))
+            assertFalse(repository.handleReminder(first.id, "taken"))
+            assertEquals(DoseStatus.TAKEN, dao.dose(first.id)?.status)
+            assertEquals(DoseStatus.NOTIFIED, dao.dose(second.id)?.status)
+            assertEquals(1, dao.movementCount(first.id, MovementType.TAKE))
+            assertEquals(0, dao.movementCount(second.id, MovementType.TAKE))
+            eventually { manager.activeNotifications.none { it.tag == first.id } }
+            assertTrue(manager.activeNotifications.any { it.tag == second.id })
+
+            assertTrue(repository.handleReminder(second.id, "taken"))
+            assertFalse(repository.handleReminder(second.id, "taken"))
+            assertEquals(DoseStatus.TAKEN, dao.dose(second.id)?.status)
+            assertEquals(1, dao.movementCount(second.id, MovementType.TAKE))
+        } finally {
+            for (dose in listOf(first, second)) {
+                AndroidReminderDelivery(context).clear(dose.id, emptySet(), false)
+            }
+            settings.setAlarmAssigned(patient.id, false)
+            db.close()
         }
     }
 

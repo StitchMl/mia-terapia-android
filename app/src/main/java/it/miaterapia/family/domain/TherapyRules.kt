@@ -56,7 +56,7 @@ object ScheduleEngine {
         var date = from
         while (!date.isAfter(until)) {
             if (date.dayOfWeek in rule.daysOfWeek) rule.times.sorted().forEach { time ->
-                val scheduled = ZonedDateTime.of(date, time, rule.zoneId)
+                val scheduled = resolveScheduledTime(date, time, rule.zoneId)
                 results += PlannedOccurrence(
                     occurrenceId = stableOccurrenceId(rule.scheduleId, date, time, rule.zoneId),
                     scheduledAt = scheduled,
@@ -68,6 +68,9 @@ object ScheduleEngine {
         }
         return results
     }
+
+    internal fun resolveScheduledTime(date: LocalDate, time: LocalTime, zone: ZoneId): ZonedDateTime =
+        ZonedDateTime.of(date, time, zone)
 
     fun stableOccurrenceId(scheduleId: String, date: LocalDate, time: LocalTime, zone: ZoneId): String =
         UUID.nameUUIDFromBytes("$scheduleId|$date|$time|${zone.id}".toByteArray()).toString()
